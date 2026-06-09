@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 
 const listings = [
   {
@@ -115,8 +115,8 @@ const destinations = [
 const categories = ["Todos", "Casa", "Loft", "Cabaña", "Departamento", "Villa", "Estudio"]
 
 // ── Componente: tarjeta de alojamiento ──────────────────────────────────────
-function ListingCard({ listing, onClick }) {
-  const [saved, setSaved] = useState(false)
+function ListingCard({ listing, onClick, savedIds, onToggleSave }) {
+  const isSaved = savedIds.includes(listing.id)
 
   return (
     <div
@@ -131,10 +131,10 @@ function ListingCard({ listing, onClick }) {
           </span>
         )}
         <button
-          onClick={(e) => { e.stopPropagation(); setSaved((s) => !s) }}
+          onClick={(e) => { e.stopPropagation(); onToggleSave(listing.id) }}
           className="absolute top-2 right-2 bg-white/90 rounded-full w-8 h-8 flex items-center justify-center text-sm hover:scale-110 transition-transform"
         >
-          {saved ? "❤️" : "🤍"}
+          {isSaved ? "❤️" : "🤍"}
         </button>
       </div>
 
@@ -252,9 +252,28 @@ export default function App() {
   const [category, setCategory] = useState("Todos")
   const [selectedListing, setSelectedListing] = useState(null)
 
+  // Favoritos — se cargan y guardan en localStorage
+  const [savedIds, setSavedIds] = useState(() => {
+    try {
+      const stored = localStorage.getItem("staymx_favorites")
+      return stored ? JSON.parse(stored) : []
+    } catch { return [] }
+  })
+
+  useEffect(() => {
+    localStorage.setItem("staymx_favorites", JSON.stringify(savedIds))
+  }, [savedIds])
+
+  const toggleSave = (id) => {
+    setSavedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    )
+  }
+
+  const savedListings = listings.filter((l) => savedIds.includes(l.id))
+
   const filtered = listings.filter((l) => {
-    const normalize = (str) => str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-const matchSearch = !search || normalize(l.title).includes(normalize(search)) || normalize(l.location).includes(normalize(search))
+    const matchSearch = !search || l.title.toLowerCase().includes(search.toLowerCase()) || l.location.toLowerCase().includes(search.toLowerCase())
     const matchCat = category === "Todos" || l.type === category
     return matchSearch && matchCat
   })
@@ -281,7 +300,7 @@ const matchSearch = !search || normalize(l.title).includes(normalize(search)) ||
           </div>
 
           {/* Buscador */}
-          <div className="flex-1 max-w-sm hidden sm:flex items-center gap-2 bg-gray-100 rounded-full px-4 py-2 border border-gray-200">
+          <div className="flex-1 max-w-sm flex items-center gap-2 bg-gray-100 rounded-full px-4 py-2 border border-gray-200">
             <span className="text-gray-400 text-sm">🔍</span>
             <input
               value={search}
@@ -292,7 +311,7 @@ const matchSearch = !search || normalize(l.title).includes(normalize(search)) ||
           </div>
 
           {/* Links */}
-          <div className="hidden md:flex items-center gap-1">
+          <div className="flex items-center gap-1">
             <button onClick={() => setPage("home")} className={`text-sm px-3 py-2 rounded-lg transition-colors ${page === "home" ? "text-orange-500 font-medium" : "text-gray-500 hover:bg-gray-100"}`}>
               Inicio
             </button>
@@ -301,6 +320,14 @@ const matchSearch = !search || normalize(l.title).includes(normalize(search)) ||
             </button>
             <button onClick={() => setPage("about")} className={`text-sm px-3 py-2 rounded-lg transition-colors ${page === "about" ? "text-orange-500 font-medium" : "text-gray-500 hover:bg-gray-100"}`}>
               Nosotros
+            </button>
+            <button onClick={() => setPage("favorites")} className={`text-sm px-3 py-2 rounded-lg transition-colors relative ${page === "favorites" ? "text-orange-500 font-medium" : "text-gray-500 hover:bg-gray-100"}`}>
+              Favoritos
+              {savedIds.length > 0 && (
+                <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-xs w-4 h-4 rounded-full flex items-center justify-center leading-none">
+                  {savedIds.length}
+                </span>
+              )}
             </button>
             <button className="ml-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium px-4 py-2 rounded-full transition-colors">
               Publicar
@@ -320,7 +347,7 @@ const matchSearch = !search || normalize(l.title).includes(normalize(search)) ||
             />
             <div className="relative max-w-xl mx-auto">
               <p className="text-orange-400 text-xs tracking-widest uppercase mb-4 font-medium">Tu próxima aventura te espera</p>
-              <h1 className="text-3xl md:text-5xl font-bold leading-tight mb-4">
+              <h1 className="text-5xl font-bold leading-tight mb-4">
                 Descubre México<br />
                 <em className="text-orange-400 not-italic">como nunca antes</em>
               </h1>
@@ -340,7 +367,7 @@ const matchSearch = !search || normalize(l.title).includes(normalize(search)) ||
 
           {/* Stats */}
           <div className="bg-orange-50 border-b border-orange-100">
-            <div className="max-w-6xl mx-auto px-4 py-6 grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+            <div className="max-w-6xl mx-auto px-4 py-6 grid grid-cols-4 gap-4 text-center">
               {[["1,400+", "Alojamientos"], ["38", "Ciudades"], ["96%", "Satisfacción"], ["24/7", "Soporte"]].map(([n, l]) => (
                 <div key={l}>
                   <p className="text-2xl font-bold text-orange-500">{n}</p>
@@ -378,7 +405,7 @@ const matchSearch = !search || normalize(l.title).includes(normalize(search)) ||
               <p className="text-gray-500 text-sm mb-8">Seleccionados por nuestro equipo editorial</p>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {listings.slice(0, 3).map((l) => (
-                  <ListingCard key={l.id} listing={l} onClick={setSelectedListing} />
+                  <ListingCard key={l.id} listing={l} onClick={setSelectedListing} savedIds={savedIds} onToggleSave={toggleSave} />
                 ))}
               </div>
               <div className="text-center mt-10">
@@ -436,7 +463,44 @@ const matchSearch = !search || normalize(l.title).includes(normalize(search)) ||
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {filtered.map((l) => (
-                <ListingCard key={l.id} listing={l} onClick={setSelectedListing} />
+                <ListingCard key={l.id} listing={l} onClick={setSelectedListing} savedIds={savedIds} onToggleSave={toggleSave} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ══ PÁGINA: FAVORITES ════════════════════════════════════════════════ */}
+      {page === "favorites" && (
+        <div className="max-w-6xl mx-auto px-4 py-10">
+          <div className="flex justify-between items-center mb-8 flex-wrap gap-3">
+            <h2 className="text-2xl font-bold">Mis favoritos</h2>
+            {savedListings.length > 0 && (
+              <button
+                onClick={() => setSavedIds([])}
+                className="text-sm text-red-400 hover:text-red-600 transition-colors"
+              >
+                Borrar todos
+              </button>
+            )}
+          </div>
+
+          {savedListings.length === 0 ? (
+            <div className="text-center py-24 text-gray-400">
+              <p className="text-5xl mb-4">🤍</p>
+              <p className="text-lg mb-2">Aún no tienes favoritos</p>
+              <p className="text-sm mb-8">Toca el corazón en cualquier alojamiento para guardarlo aquí</p>
+              <button
+                onClick={() => goExplore()}
+                className="bg-orange-500 hover:bg-orange-600 text-white px-8 py-3 rounded-full text-sm font-medium transition-colors"
+              >
+                Explorar alojamientos
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {savedListings.map((l) => (
+                <ListingCard key={l.id} listing={l} onClick={setSelectedListing} savedIds={savedIds} onToggleSave={toggleSave} />
               ))}
             </div>
           )}
@@ -450,7 +514,7 @@ const matchSearch = !search || normalize(l.title).includes(normalize(search)) ||
           <p className="text-gray-500 leading-relaxed mb-8">
             StayMX nació con la misión de conectar a viajeros mexicanos y extranjeros con los alojamientos más auténticos de México. Desde la arquitectura colonial de Campeche hasta las playas cristalinas de Los Cabos.
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-10">
+          <div className="grid grid-cols-2 gap-4 mb-10">
             {["Verificación de anfitriones", "Pagos 100% seguros", "Soporte 24/7", "Cancelación flexible"].map((v) => (
               <div key={v} className="flex items-center gap-3 bg-orange-50 rounded-xl p-4">
                 <span className="text-orange-500 font-bold">✓</span>
