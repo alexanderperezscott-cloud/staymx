@@ -16,7 +16,7 @@ const ListingCard = ({ listing }) => {
         {listing.guestFavorite && (
           <div className="absolute top-3 left-3 bg-white/90 dark:bg-gray-950/80 backdrop-blur-sm text-gray-950 dark:text-gray-50 px-3 py-1 rounded-full text-xs font-semibold shadow-sm border border-gray-100 dark:border-gray-800 transition-colors duration-300">
             Favorito entre huéspedes
-          </div>
+          </h3>
         )}
         
         {/* Botón Corazón (Favoritos) */}

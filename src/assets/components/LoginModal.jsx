@@ -1,6 +1,6 @@
 // src/components/LoginModal.jsx
 import React, { useState } from 'react'
-import { loginWithEmail, signUpWithEmail, loginWithGoogle } from '../config/supabase'
+import { loginWithEmail, signUpWithEmail, loginWithGoogle } from '../../config/supabase'
 
 export default function LoginModal({ isOpen, onClose }) {
   const [isSignUp, setIsSignUp] = useState(false)
@@ -20,7 +20,7 @@ export default function LoginModal({ isOpen, onClose }) {
       const { error } = await signUpWithEmail(email, password)
       if (error) setErrorMessage(error.message)
       else {
-        alert('Check your email for the confirmation link!')
+        alert('¡Registro exitoso! Revisa tu correo de confirmación.')
         onClose()
       }
     } else {
@@ -40,7 +40,6 @@ export default function LoginModal({ isOpen, onClose }) {
     <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 max-w-md w-full space-y-6 shadow-2xl relative text-slate-100">
         
-        {/* Close Button */}
         <button 
           onClick={onClose} 
           className="absolute top-4 right-4 text-slate-400 hover:text-white text-lg"
@@ -49,7 +48,7 @@ export default function LoginModal({ isOpen, onClose }) {
         </button>
 
         <h2 className="text-2xl font-bold text-center">
-          {isSignUp ? 'Create an Account' : 'Welcome Back to StayMX'}
+          {isSignUp ? 'Crear Cuenta en StayMX' : 'Iniciar Sesión en StayMX'}
         </h2>
 
         {errorMessage && (
@@ -58,7 +57,6 @@ export default function LoginModal({ isOpen, onClose }) {
           </div>
         )}
 
-        {/* Google OAuth Button */}
         <button
           onClick={handleGoogleAuth}
           type="button"
@@ -70,37 +68,36 @@ export default function LoginModal({ isOpen, onClose }) {
             <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.24C.45 8.15 0 9.99 0 12s.45 3.85 1.24 5.42l4.04-3.15z"/>
             <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.61 1.24 6.58l4.04 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
           </svg>
-          Continue with Google
+          Continuar con Google
         </button>
 
         <div className="flex items-center gap-3">
           <div className="h-px bg-slate-800 flex-1"></div>
-          <span className="text-xs text-slate-500 font-mono">OR WITH EMAIL</span>
+          <span className="text-xs text-slate-500 font-mono">O CON CORREO</span>
           <div className="h-px bg-slate-800 flex-1"></div>
         </div>
 
-        {/* Email/Password Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-mono text-slate-400 mb-1">Email</label>
+            <label className="block text-xs font-mono text-slate-400 mb-1">Correo Electrónico</label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-slate-200 text-sm focus:outline-none focus:border-teal-500"
-              placeholder="you@domain.com"
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-slate-200 text-sm focus:outline-none focus:border-rose-500"
+              placeholder="tu@correo.com"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-mono text-slate-400 mb-1">Password</label>
+            <label className="block text-xs font-mono text-slate-400 mb-1">Contraseña</label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-slate-200 text-sm focus:outline-none focus:border-teal-500"
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-slate-200 text-sm focus:outline-none focus:border-rose-500"
               placeholder="••••••••"
             />
           </div>
@@ -108,19 +105,19 @@ export default function LoginModal({ isOpen, onClose }) {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-teal-500 hover:bg-teal-400 text-slate-950 font-semibold py-2.5 rounded-xl transition duration-200 text-sm disabled:opacity-50"
+            className="w-full bg-rose-500 hover:bg-rose-600 text-white font-semibold py-2.5 rounded-xl transition duration-200 text-sm disabled:opacity-50"
           >
-            {loading ? 'Processing...' : isSignUp ? 'Sign Up' : 'Log In'}
+            {loading ? 'Procesando...' : isSignUp ? 'Registrarse' : 'Entrar'}
           </button>
         </form>
 
         <p className="text-xs text-center text-slate-400">
-          {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
+          {isSignUp ? '¿Ya tienes cuenta?' : '¿No tienes cuenta aun?'}{' '}
           <button
             onClick={() => setIsSignUp(!isSignUp)}
-            className="text-teal-400 hover:underline font-medium"
+            className="text-rose-400 hover:underline font-medium"
           >
-            {isSignUp ? 'Log In' : 'Sign Up'}
+            {isSignUp ? 'Inicia Sesión' : 'Regístrate aquí'}
           </button>
         </p>
       </div>
