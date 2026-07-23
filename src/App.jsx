@@ -1,5 +1,7 @@
 // src/App.jsx
 import { useState, useEffect } from "react"
+import Header from './assets/components/Header.jsx'
+import { getListings, createListing } from './config/supabase'
 
 const initialListings = [
   { id:1, title:"Casa colonial en el centro histórico", location:"Campeche, Campeche", price:850, rating:4.97, reviews:184, img:"https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=600&q=80", type:"Casa", guests:6, beds:3, baths:2, tag:"Popular", tagColor:"bg-orange-500", superhost:true, amenities:["WiFi","Cocina","A/C","Estacionamiento"] },
@@ -40,7 +42,7 @@ function Field({ label, error, children }) {
 
 const inputCls = "w-full border border-gray-200 dark:border-gray-800 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-rose-300 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors"
 
-// ── ListingCard (Estilo Airbnb) ───────────────────────────────────────────────
+// ── ListingCard ─────────────────────────────────────────────────────────────
 function ListingCard({ listing, onClick, savedIds, onToggleSave }) {
   const isSaved = savedIds.includes(listing.id)
   return (
@@ -92,7 +94,7 @@ function ListingCard({ listing, onClick, savedIds, onToggleSave }) {
   )
 }
 
-// ── Modal Reservación (Estilo Airbnb + Modo Oscuro) ───────────────────────────
+// ── Modal Reservación ─────────────────────────────────────────────────────────
 function Modal({ listing, onClose, onReserve, reservations }) {
   const [checkIn,  setCheckIn]  = useState(addDays(today,1))
   const [checkOut, setCheckOut] = useState(addDays(today,4))
@@ -180,12 +182,13 @@ function Modal({ listing, onClose, onReserve, reservations }) {
   )
 }
 
-// ── PublishForm (Modo Oscuro Adaptado) ────────────────────────────────────────
+// ── PublishForm ─────────────────────────────────────────────────────────────
 function PublishForm({ onPublish, onCancel }) {
-  const [step, setStep]     = useState(1)
+  const [step, setStep]       = useState(1)
   const [preview, setPreview] = useState(null)
-  const [errors, setErrors] = useState({})
+  const [errors, setErrors]   = useState({})
   const [success, setSuccess] = useState(false)
+  const [loading, setLoading] = useState(false)
 
   const [form, setForm] = useState({
     title:"", type:"Casa", price:"", guests:"1", beds:"1", baths:"1",
@@ -228,37 +231,71 @@ function PublishForm({ onPublish, onCancel }) {
   const next = () => { if(validateStep()) setStep(s=>s+1) }
   const back = () => { setStep(s=>s-1); setErrors({}) }
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!validateStep()) return
-    const newListing = {
-      id: Date.now(),
+
+    setLoading(true)
+
+    const newListingData = {
       title: form.title,
-      location: `${form.city}, ${form.state}`,
-      address: form.address,
-      price: +form.price,
-      rating: 5.0,
-      reviews: 0,
-      img: form.imgUrl,
       type: form.type,
+      price: +form.price,
       guests: +form.guests,
       beds: +form.beds,
       baths: +form.baths,
-      tag: "Nuevo",
-      tagColor: "bg-rose-500",
-      superhost: false,
-      amenities: form.amenities.length>0 ? form.amenities : ["WiFi"],
+      address: form.address,
+      city: form.city,
+      state: form.state,
       description: form.description,
-      isOwn: true,
+      amenities: form.amenities.length > 0 ? form.amenities : ["WiFi"],
+      img: form.imgUrl,
     }
-    onPublish(newListing)
-    setSuccess(true)
+
+    // 1. Guardar en Supabase
+    const { data, error } = await createListing(newListingData)
+
+    setLoading(false)
+
+    if (error) {
+      console.error("Error al guardar en Supabase:", error.message)
+      alert("Hubo un error al publicar el alojamiento: " + error.message)
+      return
+    }
+
+    // 2. Formatear la respuesta devuelta por Supabase para la interfaz
+    if (data && data.length > 0) {
+      const item = data[0]
+      const formattedListing = {
+        id: item.id,
+        title: item.title,
+        location: `${item.city}, ${item.state}`,
+        address: item.address,
+        price: item.price_per_night,
+        rating: 5.0,
+        reviews: 0,
+        img: item.image_url || "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=600&q=80",
+        type: item.property_type,
+        guests: item.guests,
+        beds: item.beds,
+        baths: item.baths,
+        tag: "Nuevo",
+        tagColor: "bg-rose-500",
+        superhost: false,
+        amenities: item.amenities || ["WiFi"],
+        description: item.description,
+        isOwn: true,
+      }
+
+      onPublish(formattedListing)
+      setSuccess(true)
+    }
   }
 
   if (success) return (
     <div className="max-w-lg mx-auto px-4 py-20 text-center">
       <p className="text-5xl mb-4">🏡</p>
       <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-50 mb-3">¡Tu alojamiento está publicado!</h2>
-      <p className="text-gray-500 dark:text-gray-450 text-sm mb-8">Ya aparece en la sección Explorar para que otros viajeros lo encuentren.</p>
+      <p className="text-gray-500 dark:text-gray-450 text-sm mb-8">Ya aparece guardado en Supabase y en la sección Explorar para que otros viajeros lo encuentren.</p>
       <button onClick={onCancel} className="bg-rose-500 hover:bg-rose-600 text-white px-8 py-3 rounded-full font-medium shadow-md transition-colors">Ver mis publicaciones</button>
     </div>
   )
@@ -369,21 +406,23 @@ function PublishForm({ onPublish, onCancel }) {
         {step>1 ? <button onClick={back} className="px-5 py-2.5 border border-gray-200 dark:border-gray-800 rounded-xl text-sm font-semibold hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">Anterior</button> : <div/>}
         {step<3
           ? <button onClick={next} className="bg-rose-500 hover:bg-rose-600 text-white px-6 py-2.5 rounded-xl text-sm font-semibold shadow-md shadow-rose-500/10 transition-colors">Siguiente</button>
-          : <button onClick={handleSubmit} className="bg-rose-500 hover:bg-rose-600 text-white px-6 py-2.5 rounded-xl text-sm font-semibold shadow-md shadow-rose-500/10 transition-colors">Publicar ahora 🏡</button>
+          : <button onClick={handleSubmit} disabled={loading} className="bg-rose-500 hover:bg-rose-600 text-white px-6 py-2.5 rounded-xl text-sm font-semibold shadow-md shadow-rose-500/10 transition-colors">
+              {loading ? "Guardando en Supabase..." : "Publicar ahora 🏡"}
+            </button>
         }
       </div>
     </div>
   )
 }
 
-// ── App Principal con Control de Rutas y Modo Oscuro ──────────────────────────
+// ── App Principal ────────────────────────────────────────────────────────────
 export default function App() {
   const [page, setPage]               = useState("home")
   const [search, setSearch]           = useState("")
   const [category, setCategory]       = useState("Todos")
   const [selectedListing, setSelectedListing] = useState(null)
 
-  // LÓGICA MODO OSCURO (Estado persistente en LocalStorage)
+  // MODO OSCURO
   const [isDarkMode, setIsDarkMode] = useState(() => {
     try {
       const saved = localStorage.getItem("staymx_dark_mode")
@@ -404,15 +443,45 @@ export default function App() {
 
   const toggleDarkMode = () => setIsDarkMode(prev => !prev)
 
-  const [listings, setListings] = useState(()=>{
-    try { const s=localStorage.getItem("staymx_listings"); return s?[...initialListings,...JSON.parse(s)]:initialListings } catch{return initialListings}
-  })
+  // ESTADO DE ALOJAMIENTOS CON CARGA DE SUPABASE
+  const [listings, setListings] = useState(initialListings)
+
+  useEffect(() => {
+    async function fetchListings() {
+      const { data, error } = await getListings()
+      
+      if (error) {
+        console.error('Error al cargar publicaciones de Supabase:', error.message)
+      } else if (data && data.length > 0) {
+        const formattedData = data.map(item => ({
+          id: item.id,
+          title: item.title,
+          location: `${item.city}, ${item.state}`,
+          price: item.price_per_night,
+          rating: 5.0,
+          reviews: 0,
+          img: item.image_url || "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=600&q=80",
+          type: item.property_type,
+          guests: item.guests,
+          beds: item.beds,
+          baths: item.baths,
+          tag: "Nuevo",
+          tagColor: "bg-rose-500",
+          superhost: false,
+          amenities: item.amenities || ["WiFi"],
+          description: item.description,
+          address: item.address
+        }))
+        
+        setListings([...formattedData, ...initialListings])
+      }
+    }
+
+    fetchListings()
+  }, [])
   
-  const addListing = (l) => {
-    const owned = listings.filter(x=>x.isOwn)
-    const updated = [...owned, l]
-    localStorage.setItem("staymx_listings", JSON.stringify(updated))
-    setListings([...initialListings, ...updated])
+  const addListing = (newListing) => {
+    setListings(prevListings => [newListing, ...prevListings])
   }
 
   const [savedIds, setSavedIds] = useState(()=>{ try{const s=localStorage.getItem("staymx_favorites");return s?JSON.parse(s):[]}catch{return[]} })
@@ -435,74 +504,16 @@ export default function App() {
 
   const goExplore = (term="") => { setSearch(term); setPage("explore") }
 
-  // Componente de navegación común reutilizable con soporte de Modo Oscuro
-  const renderNavbar = () => (
-    <nav className="bg-white dark:bg-gray-950 border-b border-gray-200 dark:border-gray-900 sticky top-0 z-40 transition-colors duration-300">
-      <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between gap-4">
-        {/* LOGO */}
-        <div onClick={()=>{setPage("home");setSearch("");setCategory("Todos")}} className="flex items-center gap-1.5 cursor-pointer shrink-0">
-          <div className="w-8 h-8 rounded-full bg-rose-500 flex items-center justify-center shadow-md shadow-rose-500/20">
-            <span className="text-white font-black text-lg">S</span>
-          </div>
-          <span className="text-rose-500 font-bold text-xl tracking-tight hidden sm:block">staymx</span>
-        </div>
-        
-        {/* BARRA DE BÚSQUEDA AIRBNB */}
-        <div className="flex-1 max-w-md mx-4 flex items-center gap-2 bg-white dark:bg-gray-900 rounded-full pl-5 pr-2 py-1.5 border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow">
-          <input 
-            value={search} 
-            onChange={e=>{setSearch(e.target.value); if(page!=="explore") setPage("explore")}} 
-            placeholder="¿A dónde quieres ir?"
-            className="bg-transparent flex-1 text-sm outline-none text-gray-900 dark:text-gray-100 placeholder-gray-400 font-medium"
-          />
-          <button className="bg-rose-500 text-white p-2 rounded-full hover:bg-rose-600 transition-colors">
-            <svg fill="none" viewBox="0 0 24 24" strokeWidth="3" stroke="currentColor" className="w-3.5 h-3.5"><path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.602 10.602Z"/></svg>
-          </button>
-        </div>
-
-        {/* MENÚ DE NAVEGACIÓN DERECHA */}
-        <div className="flex items-center gap-3">
-          <div className="hidden lg:flex items-center gap-1">
-            {[["home","Inicio"],["explore","Explorar"],["favorites","Favoritos"],["reservations","Mis viajes"],["my-listings","Publicaciones"]].map(([p,label])=>(
-              <button key={p} onClick={()=>p==="explore"?goExplore():setPage(p)}
-                className={`relative text-xs font-bold px-3 py-2 rounded-full transition-all ${page===p?"bg-gray-100 dark:bg-gray-800 text-rose-500":"text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-900"}`}>
-                {label}
-                {p==="favorites" && savedIds.length>0 && <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold shadow">{savedIds.length}</span>}
-                {p==="reservations" && reservations.length>0 && <span className="absolute -top-1 -right-1 bg-emerald-500 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold shadow">{reservations.length}</span>}
-                {p==="my-listings" && myListings.length>0 && <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold shadow">{myListings.length}</span>}
-              </button>
-            ))}
-          </div>
-
-          <button onClick={()=>setPage("publish")} className="hidden sm:block text-xs font-bold text-gray-700 dark:text-gray-200 px-3 py-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">+ Modo Anfitrión</button>
-
-          {/* BOTÓN MODO OSCURO */}
-          <button 
-            onClick={toggleDarkMode}
-            className="p-2 rounded-full border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:shadow-sm transition-all"
-            title="Alternar modo oscuro"
-          >
-            {isDarkMode ? "☀️" : "🌙"}
-          </button>
-        </div>
-      </div>
-      
-      {/* MENÚ MÓVIL INFERIOR DE ACCESO RÁPIDO (Estilo App Nativa) */}
-      <div className="lg:hidden fixed bottom-0 inset-x-0 bg-white dark:bg-gray-950 border-t border-gray-200 dark:border-gray-900 z-50 flex justify-around items-center h-16 shadow-lg transition-colors duration-300">
-        {[["home","🏠","Inicio"],["explore","🔍","Explorar"],["favorites","❤️","Favoritos"],["reservations","🧳","Viajes"],["my-listings","🏢","Anfitrión"]].map(([p,icon,label])=>(
-          <button key={p} onClick={()=>p==="explore"?goExplore():setPage(p)} className="flex flex-col items-center justify-center text-center flex-1 py-1">
-            <span className="text-xl">{icon}</span>
-            <span className={`text-[10px] font-bold ${page===p?"text-rose-500":"text-gray-400 dark:text-gray-500"}`}>{label}</span>
-          </button>
-        ))}
-      </div>
-    </nav>
-  )
-
   return (
     <div className="min-h-screen bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-50 font-sans transition-colors duration-300 pb-16 lg:pb-0">
       
-      {renderNavbar()}
+      {/* Componente Header reutilizable */}
+      <Header 
+        isDarkMode={isDarkMode} 
+        toggleDarkMode={toggleDarkMode} 
+        setPage={setPage} 
+        page={page} 
+      />
 
       {/* RUTA: FORMULARIO PUBLICAR */}
       {page==="publish" && (
@@ -570,7 +581,7 @@ export default function App() {
             <span className="text-xs font-bold bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-3 py-1.5 rounded-full">{filtered.length} opciones encontradas</span>
           </div>
           
-          {/* Filtro de Categorías Estilo Pestañas de Airbnb */}
+          {/* Filtro de Categorías */}
           <div className="flex gap-2 mb-8 overflow-x-auto pb-3 border-b border-gray-100 dark:border-gray-900 scrollbar-none">
             {categories.map(c=>(
               <button key={c} onClick={()=>setCategory(c)} 
@@ -607,7 +618,7 @@ export default function App() {
         </div>
       )}
 
-      {/* RUTA: VIAJES (RESERVACIONES) */}
+      {/* RUTA: VIAJES */}
       {page==="reservations" && (
         <div className="max-w-4xl mx-auto px-6 py-10">
           <div className="flex justify-between items-center mb-8">
@@ -642,7 +653,7 @@ export default function App() {
         </div>
       )}
 
-      {/* RUTA: MIS PUBLICACIONES ANFITRIÓN */}
+      {/* RUTA: MIS PUBLICACIONES */}
       {page==="my-listings" && (
         <div className="max-w-7xl mx-auto px-6 py-10">
           <div className="flex justify-between items-center mb-8 flex-wrap gap-3">
