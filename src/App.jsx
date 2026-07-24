@@ -38,6 +38,12 @@ const addDays  = (iso,n) => { const d=new Date(iso); d.setDate(d.getDate()+n); r
 const diffDays = (a,b) => Math.round((new Date(b)-new Date(a))/(1000*60*60*24))
 const today    = new Date().toISOString().split("T")[0]
 
+// Función de validación de sintaxis estricta para correos reales
+const validateEmail = (email) => {
+  const re = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
+  return re.test(String(email).toLowerCase())
+}
+
 function Field({ label, error, children }) {
   return (
     <div>
@@ -50,9 +56,9 @@ function Field({ label, error, children }) {
 
 const inputCls = "w-full border border-gray-200 dark:border-gray-800 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-rose-300 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors"
 
-// ── Modal de Autenticación Clarificado (Pestañas + Jerarquía de Botones) ─────
+// ── Modal de Autenticación (con Pestañas + Validación Estricta) ─────────────
 function AuthModal({ isOpen, onClose, onSuccess }) {
-  const [tab, setTab]           = useState("signup") // "signup" por defecto para nuevos usuarios
+  const [tab, setTab]           = useState("signup")
   const [email, setEmail]       = useState("")
   const [password, setPassword] = useState("")
   const [fullName, setFullName] = useState("")
@@ -64,6 +70,21 @@ function AuthModal({ isOpen, onClose, onSuccess }) {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setErrorMsg("")
+
+    // 1. Validar correo sintácticamente real
+    if (!validateEmail(email)) {
+      setErrorMsg("Ingresa una dirección de correo válida (ejemplo: nombre@dominio.com).")
+      return
+    }
+
+    // 2. Bloquear dominios temporales o descartables comunes
+    const disposableDomains = ["mailinator.com", "yopmail.com", "tempmail.com", "10minutemail.com"]
+    const domain = email.split("@")[1]
+    if (disposableDomains.includes(domain)) {
+      setErrorMsg("No se permiten direcciones de correo temporales o desechables.")
+      return
+    }
+
     setLoading(true)
 
     if (tab === "signup") {
@@ -110,7 +131,7 @@ function AuthModal({ isOpen, onClose, onSuccess }) {
       <div onClick={e => e.stopPropagation()} className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-3xl w-full max-w-md p-6 shadow-2xl relative">
         <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 font-bold">✕</button>
 
-        {/* Pestañas super claras: Registrarse / Iniciar Sesión */}
+        {/* Pestañas de Navegación del Modal */}
         <div className="flex border-b border-gray-200 dark:border-gray-800 mb-6">
           <button
             type="button"
@@ -138,8 +159,8 @@ function AuthModal({ isOpen, onClose, onSuccess }) {
 
         <p className="text-xs text-gray-500 dark:text-gray-400 mb-5">
           {tab === "signup"
-            ? "Crea tu cuenta gratis en StayMX para hospedar o reservar."
-            : "Ingresa tus credenciales para acceder a tu perfil."}
+            ? "Crea tu cuenta en StayMX para hospedar o realizar reservaciones."
+            : "Ingresa tus datos para continuar en StayMX."}
         </p>
 
         {errorMsg && <p className="bg-rose-50 text-rose-600 text-xs p-3 rounded-xl mb-4 font-medium">{errorMsg}</p>}
@@ -176,7 +197,6 @@ function AuthModal({ isOpen, onClose, onSuccess }) {
             <input required type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" className={inputCls} />
           </Field>
 
-          {/* Botón Principal Prominente */}
           <button 
             type="submit" 
             disabled={loading} 
@@ -346,7 +366,7 @@ function Modal({ listing, onClose, onReserve, reservations, user, openAuth }) {
   )
 }
 
-// 🏡 ── FORMULARIO MODO ANFITRIÓN ──────────────────────────────────────────────
+// 🏡 ── FORMULARIO MODO ANFITRIÓN TIPO AIRBNB ─────────────────────────────────
 function PublishForm({ onPublish, onCancel }) {
   const [step, setStep]       = useState(1)
   const [preview, setPreview] = useState(null)
