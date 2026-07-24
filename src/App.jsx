@@ -16,11 +16,25 @@ import {
 } from './config/supabase'
 
 const initialListings = [
-  { id:"11111111-1111-1111-1111-111111111111", title:"Casa colonial en el centro histórico", location:"Campeche, Campeche", price:850, rating:4.97, reviews:184, img:"https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=600&q=80", type:"Casa", guests:6, beds:3, baths:2, tag:"Popular", tagColor:"bg-orange-500", superhost:true, amenities:["WiFi","Cocina","A/C","Estacionamiento"] },
-  { id:"22222222-2222-2222-2222-222222222222", title:"Loft moderno con vista al mar", location:"Mérida, Yucatán", price:1200, rating:4.92, reviews:93, img:"https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=600&q=80", type:"Loft", guests:2, beds:1, baths:1, tag:"Superhost", tagColor:"bg-green-600", superhost:true, amenities:["WiFi","Alberca","Gym","Balcón"] },
-  { id:"33333333-3333-3333-3333-333333333333", title:"Cabaña en la selva con cenote privado", location:"Valladolid, Yucatán", price:2400, rating:4.99, reviews:57, img:"https://images.unsplash.com/photo-1439130490301-25e322d88054?w=600&q=80", type:"Cabaña", guests:4, beds:2, baths:1, tag:"Nuevo", tagColor:"bg-indigo-500", superhost:false, amenities:["WiFi","Cenote","Desayuno","Tours"] },
-  { id:"44444444-4444-4444-4444-444444444444", title:"Departamento minimalista en Polanco", location:"Ciudad de México, CDMX", price:1800, rating:4.85, reviews:221, img:"https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=600&q=80", type:"Departamento", guests:4, beds:2, baths:2, tag:"", tagColor:"", superhost:true, amenities:["WiFi","A/C","Cocina","Netflix"] },
+  { id:"11111111-1111-1111-1111-111111111111", title:"Casa colonial en el centro histórico", location:"Campeche, Campeche", price:850, rating:4.97, reviews:184, img:"https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=600&q=80", type:"Casa", guests:6, beds:3, baths:2, superhost:true, amenities:["WiFi","Cocina","A/C","Estacionamiento"] },
+  { id:"22222222-2222-2222-2222-222222222222", title:"Loft moderno con vista al mar", location:"Mérida, Yucatán", price:1200, rating:4.92, reviews:93, img:"https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=600&q=80", type:"Loft", guests:2, beds:1, baths:1, superhost:true, amenities:["WiFi","Alberca","Gym","Balcón"] },
+  { id:"33333333-3333-3333-3333-333333333333", title:"Cabaña en la selva con cenote privado", location:"Valladolid, Yucatán", price:2400, rating:4.99, reviews:57, img:"https://images.unsplash.com/photo-1439130490301-25e322d88054?w=600&q=80", type:"Cabaña", guests:4, beds:2, baths:1, superhost:false, amenities:["WiFi","Cenote","Desayuno","Tours"] },
+  { id:"44444444-4444-4444-4444-444444444444", title:"Departamento minimalista en Polanco", location:"Ciudad de México, CDMX", price:1800, rating:4.85, reviews:221, img:"https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=600&q=80", type:"Departamento", guests:4, beds:2, baths:2, superhost:true, amenities:["WiFi","A/C","Cocina","Netflix"] },
 ]
+
+// Ciudades agrupadas por estado para el Dropdown estilo Airbnb
+const mexicoLocations = {
+  "Campeche": ["Campeche Centro", "Ciudad del Carmen", "Champotón", "Calakmul"],
+  "Yucatán": ["Mérida", "Valladolid", "Progreso", "Izamal"],
+  "Quintana Roo": ["Cancún", "Playa del Carmen", "Tulum", "Cozumel", "Holbox"],
+  "CDMX": ["Polanco", "Condesa", "Roma Norte", "Coyoacán", "Centro Histórico"],
+  "Jalisco": ["Puerto Vallarta", "Guadalajara", "Tequila", "Zapopan"],
+  "Baja California Sur": ["Los Cabos", "La Paz", "Todos Santos"]
+}
+
+const categories    = ["Todos","Casa","Loft","Cabaña","Departamento","Villa","Estudio"]
+const tiposOpc      = ["Casa","Loft","Cabaña","Departamento","Villa","Estudio"]
+const amenidadesOpc = ["WiFi", "Cocina", "Aire Acondicionado", "Alberca", "Estacionamiento", "Gym", "Balcón", "Pet Friendly", "Parrilla", "Vista al Mar"]
 
 const addDays  = (iso,n) => { const d=new Date(iso); d.setDate(d.getDate()+n); return d.toISOString().split("T")[0] }
 const diffDays = (a,b) => Math.round((new Date(b)-new Date(a))/(1000*60*60*24))
@@ -70,7 +84,6 @@ function AuthModal({ isOpen, onClose, onSuccess }) {
       } else {
         alert("¡Cuenta creada exitosamente!")
         if (data?.user) {
-          // Crear o actualizar en profiles con el nombre elegido
           await supabase.from('profiles').upsert([
             { id: data.user.id, full_name: fullName, email, role: 'user' }
           ])
@@ -176,7 +189,7 @@ function ListingCard({ listing, onClick, savedIds, onToggleSave }) {
       <div className="mt-3 px-1">
         <div className="flex justify-between items-start gap-2 mb-0.5">
           <p className="text-sm font-semibold text-gray-900 dark:text-gray-50 truncate flex-1">{listing.title}</p>
-          <span className="text-sm flex items-center gap-0.5 shrink-0 text-gray-900 dark:text-gray-50">⭐ {listing.rating.toFixed(2)}</span>
+          <span className="text-sm flex items-center gap-0.5 shrink-0 text-gray-900 dark:text-gray-50">⭐ {listing.rating ? listing.rating.toFixed(2) : "5.0"}</span>
         </div>
         <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{listing.location} · {listing.type}</p>
         <div className="flex justify-between items-baseline mt-1">
@@ -307,19 +320,29 @@ function Modal({ listing, onClose, onReserve, reservations, user, openAuth }) {
   )
 }
 
-// ── PublishForm ─────────────────────────────────────────────────────────────
+// 🏡 ── FORMULARIO MODO ANFITRIÓN TIPO AIRBNB (AVANZADO) ─────────────────────
 function PublishForm({ onPublish, onCancel }) {
   const [step, setStep]       = useState(1)
   const [preview, setPreview] = useState(null)
   const [errors, setErrors]   = useState({})
   const [loading, setLoading] = useState(false)
 
+  const [selectedState, setSelectedState] = useState("Campeche")
   const [form, setForm] = useState({
-    title:"", type:"Casa", price:"", guests:"1", beds:"1", baths:"1",
-    description:"", address:"", city:"", state:"", amenities:[], imgUrl:""
+    title:"", type:"Casa", price:"", guests:2, beds:1, baths:1,
+    description:"", address:"", city:"Campeche Centro", amenities:[], imgUrl:""
   })
 
-  const set = (k,v) => setForm(p=>({...p,[k]:v}))
+  const set = (k,v) => setForm(p => ({...p, [k]: v}))
+
+  const toggleAmenity = (amenity) => {
+    setForm(p => ({
+      ...p,
+      amenities: p.amenities.includes(amenity)
+        ? p.amenities.filter(a => a !== amenity)
+        : [...p.amenities, amenity]
+    }))
+  }
 
   const handleImg = (e) => {
     const file = e.target.files[0]
@@ -331,9 +354,9 @@ function PublishForm({ onPublish, onCancel }) {
 
   const validateStep = () => {
     const e = {}
-    if (step===1 && (!form.title.trim() || !form.price)) e.title = "Requerido"
-    if (step===2 && (!form.address.trim() || !form.city.trim())) e.address = "Requerido"
-    if (step===3 && (!form.imgUrl || !form.description.trim())) e.img = "Requerido"
+    if (step===1 && (!form.title.trim() || !form.price || +form.price <= 0)) e.title = "Campos obligatorios requeridos"
+    if (step===2 && (!form.address.trim())) e.address = "Ingresa la dirección exacta"
+    if (step===3 && (!form.imgUrl || !form.description.trim())) e.img = "Agrega una foto y descripción"
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -343,9 +366,18 @@ function PublishForm({ onPublish, onCancel }) {
     setLoading(true)
 
     const newListingData = {
-      title: form.title, type: form.type, price: +form.price, guests: +form.guests,
-      beds: +form.beds, baths: +form.baths, address: form.address, city: form.city,
-      state: form.state, description: form.description, amenities: form.amenities, img: form.imgUrl,
+      title: form.title, 
+      type: form.type, 
+      price: +form.price, 
+      guests: +form.guests,
+      beds: +form.beds, 
+      baths: +form.baths, 
+      address: form.address, 
+      city: form.city,
+      state: selectedState, 
+      description: form.description, 
+      amenities: form.amenities, 
+      img: form.imgUrl,
     }
 
     const { data, error } = await createListing(newListingData)
@@ -357,56 +389,151 @@ function PublishForm({ onPublish, onCancel }) {
     }
 
     if (data && data.length > 0) {
+      alert("¡Tu alojamiento se ha publicado con éxito en StayMX!")
       onPublish(data[0])
     }
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-6 py-10 text-gray-900 dark:text-gray-50">
-      <button onClick={onCancel} className="text-sm text-gray-400 mb-6">← Cancelar y salir</button>
-      <h1 className="text-2xl font-bold mb-6">Publica tu espacio en StayMX</h1>
+    <div className="max-w-3xl mx-auto px-6 py-10 text-gray-900 dark:text-gray-50">
+      <button onClick={onCancel} className="text-sm font-semibold text-gray-400 hover:text-gray-600 mb-6 flex items-center gap-1">← Cancelar y salir</button>
+      
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-3xl font-black">Registra tu espacio en StayMX</h1>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Conviértete en Anfitrión y comparte tu propiedad con huéspedes de todo México.</p>
+        </div>
+        <span className="text-xs font-bold bg-rose-100 text-rose-600 px-3 py-1 rounded-full">Paso {step} de 3</span>
+      </div>
 
       {step===1 && (
-        <div className="flex flex-col gap-4">
-          <Field label="Título *" error={errors.title}>
-            <input value={form.title} onChange={e=>set("title",e.target.value)} placeholder="Ej. Casa Colonial" className={inputCls}/>
+        <div className="flex flex-col gap-5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-6 rounded-3xl shadow-sm">
+          <h2 className="font-bold text-lg text-gray-800 dark:text-gray-200">1. Datos principales del alojamiento</h2>
+          
+          <Field label="Título de tu publicación *" error={errors.title}>
+            <input value={form.title} onChange={e=>set("title",e.target.value)} placeholder="Ej. Hermoso Loft Colonial en el Centro" className={inputCls}/>
           </Field>
-          <Field label="Precio por noche (MXN) *">
-            <input type="number" value={form.price} onChange={e=>set("price",e.target.value)} placeholder="1200" className={inputCls}/>
-          </Field>
+
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Tipo de Propiedad">
+              <select value={form.type} onChange={e=>set("type",e.target.value)} className={inputCls}>
+                {tiposOpc.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </Field>
+
+            <Field label="Precio por noche (MXN) *">
+              <input type="number" min="100" value={form.price} onChange={e=>set("price",e.target.value)} placeholder="Ej. 1200" className={inputCls}/>
+            </Field>
+          </div>
+
+          <div className="grid grid-cols-3 gap-4 border-t border-gray-100 dark:border-gray-800 pt-4">
+            <Field label="Capacidad (Huéspedes)">
+              <input type="number" min="1" max="20" value={form.guests} onChange={e=>set("guests",+e.target.value)} className={inputCls}/>
+            </Field>
+
+            <Field label="Camas">
+              <input type="number" min="1" max="10" value={form.beds} onChange={e=>set("beds",+e.target.value)} className={inputCls}/>
+            </Field>
+
+            <Field label="Baños">
+              <input type="number" min="1" max="10" value={form.baths} onChange={e=>set("baths",+e.target.value)} className={inputCls}/>
+            </Field>
+          </div>
         </div>
       )}
 
       {step===2 && (
-        <div className="flex flex-col gap-4">
-          <Field label="Dirección *" error={errors.address}>
-            <input value={form.address} onChange={e=>set("address",e.target.value)} placeholder="Av. Principal #123" className={inputCls}/>
-          </Field>
+        <div className="flex flex-col gap-5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-6 rounded-3xl shadow-sm">
+          <h2 className="font-bold text-lg text-gray-800 dark:text-gray-200">2. Ubicación y Amenidades (Dropdowns)</h2>
+
+          {/* Selector Estilo Airbnb para Ubicación */}
           <div className="grid grid-cols-2 gap-4">
-            <input value={form.city} onChange={e=>set("city",e.target.value)} placeholder="Ciudad" className={inputCls}/>
-            <input value={form.state} onChange={e=>set("state",e.target.value)} placeholder="Estado" className={inputCls}/>
+            <Field label="Estado de la República">
+              <select 
+                value={selectedState} 
+                onChange={e => {
+                  setSelectedState(e.target.value)
+                  set("city", mexicoLocations[e.target.value][0])
+                }} 
+                className={inputCls}
+              >
+                {Object.keys(mexicoLocations).map(st => <option key={st} value={st}>{st}</option>)}
+              </select>
+            </Field>
+
+            <Field label="Ciudad / Municipio">
+              <select value={form.city} onChange={e=>set("city",e.target.value)} className={inputCls}>
+                {mexicoLocations[selectedState].map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </Field>
+          </div>
+
+          <Field label="Dirección exacta *" error={errors.address}>
+            <input value={form.address} onChange={e=>set("address",e.target.value)} placeholder="Ej. Calle 12 #45 por 59 y 61, Col. Centro" className={inputCls}/>
+          </Field>
+
+          {/* Seleccionar Amenidades */}
+          <div className="border-t border-gray-100 dark:border-gray-800 pt-4">
+            <label className="text-xs font-semibold text-gray-600 dark:text-gray-400 block mb-2">¿Qué servicios ofrece tu alojamiento?</label>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {amenidadesOpc.map(a => {
+                const checked = form.amenities.includes(a)
+                return (
+                  <button
+                    key={a}
+                    type="button"
+                    onClick={() => toggleAmenity(a)}
+                    className={`py-2 px-3 rounded-xl text-xs font-semibold border transition-all text-left flex items-center justify-between ${
+                      checked ? "bg-rose-50 border-rose-500 text-rose-600 dark:bg-rose-950/40" : "bg-gray-50 border-gray-200 dark:bg-gray-950 dark:border-gray-800 text-gray-600"
+                    }`}
+                  >
+                    {a} {checked && "✓"}
+                  </button>
+                )
+              })}
+            </div>
           </div>
         </div>
       )}
 
       {step===3 && (
-        <div className="flex flex-col gap-4">
-          <Field label="Fotografía *" error={errors.img}>
+        <div className="flex flex-col gap-5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-6 rounded-3xl shadow-sm">
+          <h2 className="font-bold text-lg text-gray-800 dark:text-gray-200">3. Fotografía y Descripción</h2>
+
+          <Field label="Fotografía de la propiedad *" error={errors.img}>
             <input type="file" accept="image/*" onChange={handleImg} className={inputCls}/>
+            {preview && (
+              <img src={preview} alt="Vista previa" className="w-full h-48 object-cover rounded-2xl mt-3 border border-gray-200"/>
+            )}
           </Field>
-          <Field label="Descripción *">
-            <textarea value={form.description} onChange={e=>set("description",e.target.value)} rows={4} className={inputCls}/>
+
+          <Field label="Descripción detallada *">
+            <textarea 
+              value={form.description} 
+              onChange={e=>set("description",e.target.value)} 
+              rows={4} 
+              placeholder="Describe lo que hace especial a tu propiedad, zonas cercanas, ambiente, etc." 
+              className={inputCls}
+            />
           </Field>
         </div>
       )}
 
-      <div className="flex justify-between mt-8 border-t border-gray-200 dark:border-gray-800 pt-6">
-        {step > 1 && <button onClick={() => setStep(s => s - 1)} className="px-5 py-2 border rounded-xl">Anterior</button>}
+      {/* Botones de Navegación del Formulario */}
+      <div className="flex justify-between mt-8">
+        {step > 1 ? (
+          <button onClick={() => setStep(s => s - 1)} className="px-6 py-2.5 border border-gray-300 dark:border-gray-700 rounded-xl text-sm font-bold">
+            Anterior
+          </button>
+        ) : <div/>}
+
         {step < 3 ? (
-          <button onClick={() => { if (validateStep()) setStep(s => s + 1) }} className="bg-rose-500 text-white px-6 py-2.5 rounded-xl ml-auto">Siguiente</button>
+          <button onClick={() => { if (validateStep()) setStep(s => s + 1) }} className="bg-rose-500 hover:bg-rose-600 text-white px-8 py-2.5 rounded-xl text-sm font-bold shadow-md">
+            Siguiente
+          </button>
         ) : (
-          <button onClick={handleSubmit} disabled={loading} className="bg-rose-500 text-white px-6 py-2.5 rounded-xl ml-auto">
-            {loading ? "Guardando..." : "Publicar ahora 🏡"}
+          <button onClick={handleSubmit} disabled={loading} className="bg-rose-500 hover:bg-rose-600 text-white px-8 py-2.5 rounded-xl text-sm font-bold shadow-md">
+            {loading ? "Publicando..." : "Publicar propiedad 🏡"}
           </button>
         )}
       </div>
@@ -473,7 +600,7 @@ export default function App() {
   const [userRole, setUserRole] = useState("user")
   const [authOpen, setAuthOpen] = useState(false)
 
-  // Escuchar la sesión del usuario y sincronizar con la tabla profiles
+  // Escuchar la sesión del usuario
   useEffect(() => {
     async function handleUserSession(session) {
       const u = session?.user ?? null
@@ -482,7 +609,6 @@ export default function App() {
       if (u) {
         let { data } = await getUserProfile(u.id)
 
-        // Si el perfil no existía en `profiles`, lo insertamos con los datos del usuario
         if (!data) {
           const userFullName = u.user_metadata?.full_name || u.email?.split('@')[0] || 'Usuario'
           const { error: upsertErr } = await supabase.from('profiles').upsert([
@@ -497,7 +623,6 @@ export default function App() {
           if (!upsertErr) setUserRole('user')
         } else {
           setUserRole(data.role || 'user')
-          // Actualizar la meta información si viene de Google
           if (data.full_name) {
             u.user_metadata = { ...u.user_metadata, full_name: data.full_name }
           }
@@ -523,7 +648,7 @@ export default function App() {
     localStorage.setItem("staymx_dark_mode", isDarkMode)
   }, [isDarkMode])
 
-  // Cargar Alojamientos
+  // Cargar Alojamientos de Supabase
   const [listings, setListings] = useState(initialListings)
 
   async function fetchListings() {
@@ -532,7 +657,7 @@ export default function App() {
       const formatted = data.map(i => ({
         id: i.id, title: i.title, location: `${i.city}, ${i.state}`, price: i.price_per_night,
         rating: 5.0, reviews: 0, img: i.image_url, type: i.property_type, guests: i.guests,
-        beds: i.beds, baths: i.baths, tag: "Nuevo", tagColor: "bg-rose-500", superhost: false,
+        beds: i.beds, baths: i.baths, superhost: false,
         amenities: i.amenities || ["WiFi"], description: i.description, address: i.address
       }))
       setListings([...formatted, ...initialListings])
@@ -542,6 +667,13 @@ export default function App() {
   useEffect(() => {
     fetchListings()
   }, [])
+
+  // 🎲 FUNCIÓN "SORPRÉNDEME"
+  const handleSurpriseMe = () => {
+    if (listings.length === 0) return
+    const randomIndex = Math.floor(Math.random() * listings.length)
+    setSelectedListing(listings[randomIndex])
+  }
 
   // Eliminación por Admin
   const handleDeleteListing = async (id) => {
@@ -566,7 +698,19 @@ export default function App() {
     fetchRes()
   }, [])
 
-  const [savedIds, setSavedIds] = useState([])
+  // Manejo de Favoritos
+  const [savedIds, setSavedIds] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("staymx_favorites")) || [] } catch { return [] }
+  })
+  useEffect(() => {
+    localStorage.setItem("staymx_favorites", JSON.stringify(savedIds))
+  }, [savedIds])
+
+  const toggleSave = (id) => {
+    setSavedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+  }
+
+  const savedListings = listings.filter(l => savedIds.includes(l.id))
 
   const handleOpenPublish = () => {
     if (!user) {
@@ -579,7 +723,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-50 font-sans pb-16 lg:pb-0">
       
-      {/* Header */}
+      {/* Header Con Favoritos y Anfitrión */}
       <Header 
         isDarkMode={isDarkMode} 
         toggleDarkMode={() => setIsDarkMode(!isDarkMode)} 
@@ -589,6 +733,8 @@ export default function App() {
         userRole={userRole}
         onOpenAuth={() => setAuthOpen(true)}
         onSignOut={signOutUser}
+        onOpenPublish={handleOpenPublish}
+        savedCount={savedIds.length}
       />
 
       {/* Modal Autenticación */}
@@ -599,9 +745,9 @@ export default function App() {
         <AdminDashboard listings={listings} onDelete={handleDeleteListing} />
       )}
 
-      {/* RUTA: FORMULARIO PUBLICAR */}
+      {/* RUTA: FORMULARIO PUBLICAR (MODO ANFITRIÓN) */}
       {page === "publish" && (
-        <PublishForm onPublish={() => { fetchListings(); setPage("home") }} onCancel={() => setPage("home")}/>
+        <PublishForm onPublish={() => { fetchListings(); setPage("explore") }} onCancel={() => setPage("home")}/>
       )}
 
       {/* RUTA: INICIO (HOME) */}
@@ -613,13 +759,8 @@ export default function App() {
               <div className="flex gap-3 justify-center flex-wrap mt-6">
                 <button onClick={() => setPage("explore")} className="bg-rose-500 hover:bg-rose-600 text-white px-8 py-3 rounded-full font-bold">Comenzar a explorar</button>
                 <button onClick={handleOpenPublish} className="bg-white/10 border border-white/20 text-white px-8 py-3 rounded-full font-bold">
-                  {user ? "Publicar mi espacio (+ Anfitrión)" : "Publicar mi espacio"}
+                  {user ? "+ Modo Anfitrión" : "Publicar mi espacio"}
                 </button>
-                {userRole === "admin" && (
-                  <button onClick={() => setPage("admin")} className="bg-amber-500 hover:bg-amber-600 text-white px-8 py-3 rounded-full font-bold shadow-lg">
-                    🛡️ Dashboard Admin
-                  </button>
-                )}
               </div>
             </div>
           </div>
@@ -628,22 +769,60 @@ export default function App() {
             <h2 className="text-2xl font-bold mb-6">Alojamientos destacados</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {listings.slice(0, 3).map(l => (
-                <ListingCard key={l.id} listing={l} onClick={setSelectedListing} savedIds={savedIds} onToggleSave={id => setSavedIds(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])}/>
+                <ListingCard key={l.id} listing={l} onClick={setSelectedListing} savedIds={savedIds} onToggleSave={toggleSave}/>
               ))}
             </div>
           </div>
         </div>
       )}
 
-      {/* RUTA: EXPLORAR */}
+      {/* RUTA: EXPLORAR (CON BOTÓN ¡SORPRÉNDEME!) */}
       {page === "explore" && (
         <div className="max-w-7xl mx-auto px-6 py-10">
-          <h2 className="text-2xl font-bold mb-6">Explorar alojamientos</h2>
+          <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
+            <div>
+              <h2 className="text-3xl font-black">Explorar todos los alojamientos</h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Encuentra tu lugar ideal para tus próximas vacaciones.</p>
+            </div>
+
+            {/* BOTÓN SORPRÉNDEME */}
+            <button 
+              onClick={handleSurpriseMe}
+              className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-extrabold text-sm px-6 py-3 rounded-full shadow-lg hover:scale-105 transition-all flex items-center gap-2"
+            >
+              🎲 ¡Sorpréndeme!
+            </button>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {listings.map(l => (
-              <ListingCard key={l.id} listing={l} onClick={setSelectedListing} savedIds={savedIds} onToggleSave={id => setSavedIds(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])}/>
+              <ListingCard key={l.id} listing={l} onClick={setSelectedListing} savedIds={savedIds} onToggleSave={toggleSave}/>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* RUTA: FAVORITOS RESTAURADA */}
+      {page === "favorites" && (
+        <div className="max-w-7xl mx-auto px-6 py-10">
+          <h2 className="text-3xl font-black mb-2">Tus Alojamientos Favoritos</h2>
+          <p className="text-sm text-gray-500 mb-8">Lugares que has guardado para tu próximo viaje.</p>
+
+          {savedListings.length === 0 ? (
+            <div className="text-center py-20 text-gray-400">
+              <p className="text-5xl mb-3">🤍</p>
+              <p className="text-base font-semibold">Aún no has guardado ninguna casa en tus favoritos.</p>
+              <button onClick={() => setPage("explore")} className="mt-4 bg-rose-500 text-white px-6 py-2 rounded-full font-bold text-xs">
+                Explorar listados
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {savedListings.map(l => (
+                <ListingCard key={l.id} listing={l} onClick={setSelectedListing} savedIds={savedIds} onToggleSave={toggleSave}/>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
