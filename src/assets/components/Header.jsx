@@ -45,7 +45,7 @@ export default function Header({
             Explorar
           </button>
 
-          {/* FAVORITOS RESTAURADO */}
+          {/* FAVORITOS */}
           <button 
             onClick={() => setPage("favorites")} 
             className={`hover:text-rose-500 transition-colors flex items-center gap-1 ${page === "favorites" ? "text-rose-500 font-bold" : ""}`}
@@ -53,7 +53,7 @@ export default function Header({
             Favoritos {savedCount > 0 && <span className="bg-rose-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">{savedCount}</span>}
           </button>
 
-          {/* MODO ANFITRIÓN (Solo visible cuando hay login) */}
+          {/* MODO ANFITRIÓN (Solo al iniciar sesión) */}
           {user && (
             <button 
               onClick={onOpenPublish} 
@@ -63,7 +63,7 @@ export default function Header({
             </button>
           )}
 
-          {/* DASHBOARD ADMIN (Solo visible para rol admin) */}
+          {/* DASHBOARD ADMIN (EXCLUSIVO SOLO SI ROL ES ADMIN) */}
           {userRole === "admin" && (
             <button 
               onClick={() => setPage("admin")} 
@@ -86,7 +86,7 @@ export default function Header({
             {isDarkMode ? "☀️" : "🌙"}
           </button>
 
-          {/* BOTÓN LOGIN O PERFIL */}
+          {/* SI EL USUARIO NO ESTÁ LOGUEADO */}
           {!user ? (
             <button 
               onClick={onOpenAuth}
@@ -95,6 +95,7 @@ export default function Header({
               Iniciar sesión / Registrarse
             </button>
           ) : (
+            /* SI EL USUARIO SÍ ESTÁ LOGUEADO -> MOSTRAR FOTO Y NOMBRE */
             <div className="flex items-center gap-3 pl-2 border-l border-gray-200 dark:border-gray-800">
               
               <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-full py-1 px-3">
@@ -110,6 +111,7 @@ export default function Header({
                 </span>
               </div>
 
+              {/* Botón Cerrar Sesión */}
               <button 
                 onClick={onSignOut}
                 className="text-xs font-semibold text-gray-500 dark:text-gray-400 hover:text-rose-500 transition-colors"

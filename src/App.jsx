@@ -22,7 +22,6 @@ const initialListings = [
   { id:"44444444-4444-4444-4444-444444444444", title:"Departamento minimalista en Polanco", location:"Ciudad de México, CDMX", price:1800, rating:4.85, reviews:221, img:"https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=600&q=80", type:"Departamento", guests:4, beds:2, baths:2, superhost:true, amenities:["WiFi","A/C","Cocina","Netflix"] },
 ]
 
-// Ciudades agrupadas por estado para el Dropdown estilo Airbnb
 const mexicoLocations = {
   "Campeche": ["Campeche Centro", "Ciudad del Carmen", "Champotón", "Calakmul"],
   "Yucatán": ["Mérida", "Valladolid", "Progreso", "Izamal"],
@@ -32,13 +31,11 @@ const mexicoLocations = {
   "Baja California Sur": ["Los Cabos", "La Paz", "Todos Santos"]
 }
 
-const categories    = ["Todos","Casa","Loft","Cabaña","Departamento","Villa","Estudio"]
 const tiposOpc      = ["Casa","Loft","Cabaña","Departamento","Villa","Estudio"]
 const amenidadesOpc = ["WiFi", "Cocina", "Aire Acondicionado", "Alberca", "Estacionamiento", "Gym", "Balcón", "Pet Friendly", "Parrilla", "Vista al Mar"]
 
 const addDays  = (iso,n) => { const d=new Date(iso); d.setDate(d.getDate()+n); return d.toISOString().split("T")[0] }
 const diffDays = (a,b) => Math.round((new Date(b)-new Date(a))/(1000*60*60*24))
-const fmt      = (iso) => new Date(iso+"T12:00:00").toLocaleDateString("es-MX",{day:"numeric",month:"short",year:"numeric"})
 const today    = new Date().toISOString().split("T")[0]
 
 function Field({ label, error, children }) {
@@ -53,9 +50,9 @@ function Field({ label, error, children }) {
 
 const inputCls = "w-full border border-gray-200 dark:border-gray-800 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-rose-300 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors"
 
-// ── Modal de Autenticación ──────────────────────────────────────────────────
+// ── Modal de Autenticación Clarificado (Pestañas + Jerarquía de Botones) ─────
 function AuthModal({ isOpen, onClose, onSuccess }) {
-  const [isSignUp, setIsSignUp] = useState(false)
+  const [tab, setTab]           = useState("signup") // "signup" por defecto para nuevos usuarios
   const [email, setEmail]       = useState("")
   const [password, setPassword] = useState("")
   const [fullName, setFullName] = useState("")
@@ -69,7 +66,7 @@ function AuthModal({ isOpen, onClose, onSuccess }) {
     setErrorMsg("")
     setLoading(true)
 
-    if (isSignUp) {
+    if (tab === "signup") {
       if (!fullName.trim()) {
         setErrorMsg("Por favor ingresa tu nombre completo.")
         setLoading(false)
@@ -82,13 +79,13 @@ function AuthModal({ isOpen, onClose, onSuccess }) {
       if (error) {
         setErrorMsg(error.message)
       } else {
-        alert("¡Cuenta creada exitosamente!")
         if (data?.user) {
           await supabase.from('profiles').upsert([
             { id: data.user.id, full_name: fullName, email, role: 'user' }
           ])
           onSuccess(data.user)
         }
+        alert("¡Cuenta creada exitosamente!")
         onClose()
       }
     } else {
@@ -112,10 +109,40 @@ function AuthModal({ isOpen, onClose, onSuccess }) {
     <div onClick={onClose} className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fadeIn">
       <div onClick={e => e.stopPropagation()} className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-3xl w-full max-w-md p-6 shadow-2xl relative">
         <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 font-bold">✕</button>
-        <h2 className="text-2xl font-bold mb-1 text-gray-900 dark:text-gray-50">{isSignUp ? "Crear una cuenta" : "Iniciar sesión"}</h2>
-        <p className="text-xs text-gray-500 dark:text-gray-400 mb-6">{isSignUp ? "Únete a StayMX para hospedar o reservar." : "Bienvenido de nuevo a StayMX."}</p>
 
-        {errorMsg && <p className="bg-rose-50 text-rose-600 text-xs p-3 rounded-xl mb-4">{errorMsg}</p>}
+        {/* Pestañas super claras: Registrarse / Iniciar Sesión */}
+        <div className="flex border-b border-gray-200 dark:border-gray-800 mb-6">
+          <button
+            type="button"
+            onClick={() => { setTab("signup"); setErrorMsg(""); }}
+            className={`flex-1 py-3 text-sm font-extrabold text-center border-b-2 transition-all ${
+              tab === "signup"
+                ? "border-rose-500 text-rose-500"
+                : "border-transparent text-gray-400 hover:text-gray-600"
+            }`}
+          >
+            Registrarse
+          </button>
+          <button
+            type="button"
+            onClick={() => { setTab("login"); setErrorMsg(""); }}
+            className={`flex-1 py-3 text-sm font-extrabold text-center border-b-2 transition-all ${
+              tab === "login"
+                ? "border-rose-500 text-rose-500"
+                : "border-transparent text-gray-400 hover:text-gray-600"
+            }`}
+          >
+            Iniciar sesión
+          </button>
+        </div>
+
+        <p className="text-xs text-gray-500 dark:text-gray-400 mb-5">
+          {tab === "signup"
+            ? "Crea tu cuenta gratis en StayMX para hospedar o reservar."
+            : "Ingresa tus credenciales para acceder a tu perfil."}
+        </p>
+
+        {errorMsg && <p className="bg-rose-50 text-rose-600 text-xs p-3 rounded-xl mb-4 font-medium">{errorMsg}</p>}
 
         <button 
           onClick={handleGoogleAuth}
@@ -137,28 +164,27 @@ function AuthModal({ isOpen, onClose, onSuccess }) {
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          {isSignUp && (
-            <Field label="Nombre Completo">
+          {tab === "signup" && (
+            <Field label="Nombre Completo *">
               <input required type="text" value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Ej. Alexander Perez" className={inputCls} />
             </Field>
           )}
-          <Field label="Correo Electrónico">
+          <Field label="Correo Electrónico *">
             <input required type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="tu@email.com" className={inputCls} />
           </Field>
-          <Field label="Contraseña">
+          <Field label="Contraseña *">
             <input required type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" className={inputCls} />
           </Field>
 
-          <button type="submit" disabled={loading} className="w-full bg-rose-500 hover:bg-rose-600 text-white font-bold py-3 rounded-xl shadow-md transition-colors mt-2">
-            {loading ? "Cargando..." : isSignUp ? "Registrarme" : "Entrar"}
+          {/* Botón Principal Prominente */}
+          <button 
+            type="submit" 
+            disabled={loading} 
+            className="w-full bg-rose-500 hover:bg-rose-600 text-white font-extrabold text-base py-3.5 rounded-xl shadow-lg transition-colors mt-2"
+          >
+            {loading ? "Cargando..." : tab === "signup" ? "Crear cuenta gratis 🚀" : "Iniciar Sesión 🔑"}
           </button>
         </form>
-
-        <div className="mt-6 text-center border-t border-gray-100 dark:border-gray-800 pt-4">
-          <button onClick={() => { setIsSignUp(!isSignUp); setErrorMsg(""); }} className="text-xs font-semibold text-rose-500 hover:underline">
-            {isSignUp ? "¿Ya tienes cuenta? Inicia sesión" : "¿No tienes cuenta? Regístrate gratis"}
-          </button>
-        </div>
       </div>
     </div>
   )
@@ -320,7 +346,7 @@ function Modal({ listing, onClose, onReserve, reservations, user, openAuth }) {
   )
 }
 
-// 🏡 ── FORMULARIO MODO ANFITRIÓN TIPO AIRBNB (AVANZADO) ─────────────────────
+// 🏡 ── FORMULARIO MODO ANFITRIÓN ──────────────────────────────────────────────
 function PublishForm({ onPublish, onCancel }) {
   const [step, setStep]       = useState(1)
   const [preview, setPreview] = useState(null)
@@ -446,7 +472,6 @@ function PublishForm({ onPublish, onCancel }) {
         <div className="flex flex-col gap-5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-6 rounded-3xl shadow-sm">
           <h2 className="font-bold text-lg text-gray-800 dark:text-gray-200">2. Ubicación y Amenidades (Dropdowns)</h2>
 
-          {/* Selector Estilo Airbnb para Ubicación */}
           <div className="grid grid-cols-2 gap-4">
             <Field label="Estado de la República">
               <select 
@@ -472,7 +497,6 @@ function PublishForm({ onPublish, onCancel }) {
             <input value={form.address} onChange={e=>set("address",e.target.value)} placeholder="Ej. Calle 12 #45 por 59 y 61, Col. Centro" className={inputCls}/>
           </Field>
 
-          {/* Seleccionar Amenidades */}
           <div className="border-t border-gray-100 dark:border-gray-800 pt-4">
             <label className="text-xs font-semibold text-gray-600 dark:text-gray-400 block mb-2">¿Qué servicios ofrece tu alojamiento?</label>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -519,7 +543,6 @@ function PublishForm({ onPublish, onCancel }) {
         </div>
       )}
 
-      {/* Botones de Navegación del Formulario */}
       <div className="flex justify-between mt-8">
         {step > 1 ? (
           <button onClick={() => setStep(s => s - 1)} className="px-6 py-2.5 border border-gray-300 dark:border-gray-700 rounded-xl text-sm font-bold">
@@ -600,7 +623,7 @@ export default function App() {
   const [userRole, setUserRole] = useState("user")
   const [authOpen, setAuthOpen] = useState(false)
 
-  // Escuchar la sesión del usuario
+  // Sincronización asegurada de sesión y perfiles
   useEffect(() => {
     async function handleUserSession(session) {
       const u = session?.user ?? null
@@ -610,8 +633,9 @@ export default function App() {
         let { data } = await getUserProfile(u.id)
 
         if (!data) {
-          const userFullName = u.user_metadata?.full_name || u.email?.split('@')[0] || 'Usuario'
-          const { error: upsertErr } = await supabase.from('profiles').upsert([
+          const userFullName = u.user_metadata?.full_name || u.user_metadata?.name || u.email?.split('@')[0] || 'Usuario'
+          
+          const { data: createdProfile } = await supabase.from('profiles').upsert([
             {
               id: u.id,
               full_name: userFullName,
@@ -619,8 +643,9 @@ export default function App() {
               avatar_url: u.user_metadata?.avatar_url || null,
               role: 'user'
             }
-          ])
-          if (!upsertErr) setUserRole('user')
+          ]).select().maybeSingle()
+
+          setUserRole(createdProfile?.role || 'user')
         } else {
           setUserRole(data.role || 'user')
           if (data.full_name) {
@@ -648,7 +673,7 @@ export default function App() {
     localStorage.setItem("staymx_dark_mode", isDarkMode)
   }, [isDarkMode])
 
-  // Cargar Alojamientos de Supabase
+  // Cargar Alojamientos
   const [listings, setListings] = useState(initialListings)
 
   async function fetchListings() {
@@ -668,7 +693,7 @@ export default function App() {
     fetchListings()
   }, [])
 
-  // 🎲 FUNCIÓN "SORPRÉNDEME"
+  // FUNCIÓN "SORPRÉNDEME"
   const handleSurpriseMe = () => {
     if (listings.length === 0) return
     const randomIndex = Math.floor(Math.random() * listings.length)
@@ -723,7 +748,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-50 font-sans pb-16 lg:pb-0">
       
-      {/* Header Con Favoritos y Anfitrión */}
+      {/* Header */}
       <Header 
         isDarkMode={isDarkMode} 
         toggleDarkMode={() => setIsDarkMode(!isDarkMode)} 
@@ -741,11 +766,11 @@ export default function App() {
       <AuthModal isOpen={authOpen} onClose={() => setAuthOpen(false)} onSuccess={u => setUser(u)} />
 
       {/* RUTA: DASHBOARD ADMIN */}
-      {page === "admin" && (
+      {page === "admin" && userRole === "admin" && (
         <AdminDashboard listings={listings} onDelete={handleDeleteListing} />
       )}
 
-      {/* RUTA: FORMULARIO PUBLICAR (MODO ANFITRIÓN) */}
+      {/* RUTA: FORMULARIO PUBLICAR */}
       {page === "publish" && (
         <PublishForm onPublish={() => { fetchListings(); setPage("explore") }} onCancel={() => setPage("home")}/>
       )}
@@ -759,7 +784,7 @@ export default function App() {
               <div className="flex gap-3 justify-center flex-wrap mt-6">
                 <button onClick={() => setPage("explore")} className="bg-rose-500 hover:bg-rose-600 text-white px-8 py-3 rounded-full font-bold">Comenzar a explorar</button>
                 <button onClick={handleOpenPublish} className="bg-white/10 border border-white/20 text-white px-8 py-3 rounded-full font-bold">
-                  {user ? "+ Modo Anfitrión" : "Publicar mi espacio"}
+                  {user ? "🏡 Modo Anfitrión" : "Publicar mi espacio"}
                 </button>
               </div>
             </div>
@@ -776,7 +801,7 @@ export default function App() {
         </div>
       )}
 
-      {/* RUTA: EXPLORAR (CON BOTÓN ¡SORPRÉNDEME!) */}
+      {/* RUTA: EXPLORAR */}
       {page === "explore" && (
         <div className="max-w-7xl mx-auto px-6 py-10">
           <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
@@ -785,7 +810,6 @@ export default function App() {
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Encuentra tu lugar ideal para tus próximas vacaciones.</p>
             </div>
 
-            {/* BOTÓN SORPRÉNDEME */}
             <button 
               onClick={handleSurpriseMe}
               className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-extrabold text-sm px-6 py-3 rounded-full shadow-lg hover:scale-105 transition-all flex items-center gap-2"
@@ -802,7 +826,7 @@ export default function App() {
         </div>
       )}
 
-      {/* RUTA: FAVORITOS RESTAURADA */}
+      {/* RUTA: FAVORITOS */}
       {page === "favorites" && (
         <div className="max-w-7xl mx-auto px-6 py-10">
           <h2 className="text-3xl font-black mb-2">Tus Alojamientos Favoritos</h2>
