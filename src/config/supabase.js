@@ -1,17 +1,14 @@
 // src/config/supabase.js
 import { createClient } from '@supabase/supabase-js'
 
-// 🎯 URL oficial de tu proyecto Supabase activo
+// 🎯 Active Supabase Project URL
 const REAL_SUPABASE_URL = "https://hvrehrrebhgoqjibdszs.supabase.co"
 
-// 🔑 Lee las variables de entorno; si Vercel tiene inyectado el proyecto viejo, usa REAL_SUPABASE_URL por defecto
-const envUrl = 
+// 🔑 Environment Variables with Fallbacks
+const supabaseUrl = 
   import.meta.env.VITE_SUPABASE_URL || 
-  import.meta.env.VITE_PUBLIC_SUPABASE_URL
-
-const supabaseUrl = (envUrl && !envUrl.includes("xyycalculmlpwwvdwouuk"))
-  ? envUrl 
-  : REAL_SUPABASE_URL
+  import.meta.env.VITE_PUBLIC_SUPABASE_URL || 
+  REAL_SUPABASE_URL
 
 const supabaseAnonKey = 
   import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || 
