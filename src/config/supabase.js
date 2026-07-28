@@ -1,10 +1,17 @@
 // src/config/supabase.js
 import { createClient } from '@supabase/supabase-js'
 
-// Lee las variables con o sin el sufijo _PUBLIC que genera Vercel automáticamente
-const supabaseUrl = 
+// 🎯 URL oficial de tu proyecto Supabase activo
+const REAL_SUPABASE_URL = "https://hvrehrrebhgoqjibdszs.supabase.co"
+
+// 🔑 Lee las variables de entorno; si Vercel tiene inyectado el proyecto viejo, usa REAL_SUPABASE_URL por defecto
+const envUrl = 
   import.meta.env.VITE_SUPABASE_URL || 
   import.meta.env.VITE_PUBLIC_SUPABASE_URL
+
+const supabaseUrl = (envUrl && !envUrl.includes("xyycalculmlpwwvdwouuk"))
+  ? envUrl 
+  : REAL_SUPABASE_URL
 
 const supabaseAnonKey = 
   import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || 
