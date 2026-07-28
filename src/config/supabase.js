@@ -1,8 +1,15 @@
 // src/config/supabase.js
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
+// Lee las variables con o sin el sufijo _PUBLIC que genera Vercel automáticamente
+const supabaseUrl = 
+  import.meta.env.VITE_SUPABASE_URL || 
+  import.meta.env.VITE_PUBLIC_SUPABASE_URL
+
+const supabaseAnonKey = 
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || 
+  import.meta.env.VITE_PUBLIC_SUPABASE_PUBLISHABLE_KEY || 
+  import.meta.env.VITE_PUBLIC_SUPABASE_ANON_KEY
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
