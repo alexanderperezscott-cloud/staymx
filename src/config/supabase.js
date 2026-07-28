@@ -1,19 +1,21 @@
 // src/config/supabase.js
 import { createClient } from '@supabase/supabase-js'
 
-// 🎯 Active Supabase Project URL
-const REAL_SUPABASE_URL = "https://hvrehrrebhgoqjibdszs.supabase.co"
+// 🎯 URL oficial de tu proyecto activo
+const FALLBACK_URL = "https://hvrehrrebhgoqjibdszs.supabase.co"
 
-// 🔑 Environment Variables with Fallbacks
-const supabaseUrl = 
-  import.meta.env.VITE_SUPABASE_URL || 
-  import.meta.env.VITE_PUBLIC_SUPABASE_URL || 
-  REAL_SUPABASE_URL
+// 🔑 Obtención limpia de las variables de entorno
+const rawUrl = import.meta.env.VITE_SUPABASE_URL || import.meta.env.VITE_PUBLIC_SUPABASE_URL
+
+// Valida que la URL exista y comience obligatoriamente con http:// o https://
+const supabaseUrl = (typeof rawUrl === 'string' && rawUrl.startsWith('http')) 
+  ? rawUrl 
+  : FALLBACK_URL
 
 const supabaseAnonKey = 
   import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || 
   import.meta.env.VITE_PUBLIC_SUPABASE_PUBLISHABLE_KEY || 
-  import.meta.env.VITE_PUBLIC_SUPABASE_ANON_KEY
+  import.meta.env.VITE_PUBLIC_SUPABASE_ANON_KEY || ''
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
@@ -58,7 +60,7 @@ export async function createListing(newListing) {
   return { data, error }
 }
 
-// 🗓️ Reservaciones (Usando guest_id y guests_count de tu BD)
+// 🗓️ Reservaciones
 export async function getReservations() {
   const { data, error } = await supabase
     .from('reservations')
@@ -78,10 +80,10 @@ export async function createReservation(reservation) {
     .insert([
       {
         listing_id: reservation.listingId,
-        guest_id: session.user.id,        // 👈 Nombre exacto de la columna en tu BD
+        guest_id: session.user.id,
         check_in: reservation.checkIn,
         check_out: reservation.checkOut,
-        guests_count: reservation.guests,  // 👈 Nombre exacto de la columna en tu BD
+        guests_count: reservation.guests,
         total_price: reservation.total
       }
     ])
@@ -127,7 +129,6 @@ export async function signInUser(email, password) {
   return { data, error }
 }
 
-// Alias de compatibilidad
 export async function loginWithEmail(email, password) {
   return await signInUser(email, password)
 }
