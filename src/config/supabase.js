@@ -7,7 +7,6 @@ const FALLBACK_URL = "https://hvrehrrebhgoqjibdszs.supabase.co"
 // 🔑 Obtención limpia de las variables de entorno
 const rawUrl = import.meta.env.VITE_SUPABASE_URL || import.meta.env.VITE_PUBLIC_SUPABASE_URL
 
-// Valida que la URL exista y comience obligatoriamente con http:// o https://
 const supabaseUrl = (typeof rawUrl === 'string' && rawUrl.startsWith('http')) 
   ? rawUrl 
   : FALLBACK_URL
@@ -19,7 +18,7 @@ const supabaseAnonKey =
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
-// Variable global para mantener la referencia a la ventana flotante en caso de abrirse
+// Variable global para mantener la referencia a la ventana flotante
 let googlePopupRef = null
 
 // 📥 Cargar alojamientos
@@ -141,22 +140,41 @@ export async function signUpWithEmail(email, password) {
   return { data, error }
 }
 
-// 🌐 Iniciar Sesión con Google OAuth
+// 🌐 Iniciar Sesión con Google (Ventana Emergente Flotante limpia)
 export async function loginWithGoogle() {
+  const redirectUrl = window.location.origin
+
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: `${window.location.origin}`,
+      redirectTo: redirectUrl,
+      skipBrowserRedirect: true,
       queryParams: {
-        access_type: 'offline',
         prompt: 'select_account',
       },
     },
   })
-  return { data, error }
+
+  if (error) return { data: null, error }
+
+  if (data?.url) {
+    const width = 500
+    const height = 600
+    const left = window.screenX + (window.outerWidth - width) / 2
+    const top = window.screenY + (window.outerHeight - height) / 2
+
+    googlePopupRef = window.open(
+      data.url,
+      'GoogleLoginPopup',
+      `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,status=yes`
+    )
+
+    if (googlePopupRef) googlePopupRef.focus()
+  }
+
+  return { data, error: null }
 }
 
-// Cierre seguro del popup flotante de Google
 export function closeGooglePopup() {
   if (googlePopupRef && !googlePopupRef.closed) {
     googlePopupRef.close()
