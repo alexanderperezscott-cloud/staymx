@@ -1,6 +1,12 @@
 // src/components/LoginModal.jsx
-import React, { useState } from 'react'
-import { loginWithEmail, signUpWithEmail, loginWithGoogle } from '../../config/supabase'
+import React, { useState, useEffect } from 'react'
+import { 
+  supabase, 
+  loginWithEmail, 
+  signUpWithEmail, 
+  loginWithGoogle, 
+  closeGooglePopup 
+} from '../config/supabase'
 
 export default function LoginModal({ isOpen, onClose }) {
   const [isSignUp, setIsSignUp] = useState(false)
@@ -9,6 +15,23 @@ export default function LoginModal({ isOpen, onClose }) {
   const [errorMessage, setErrorMessage] = useState('')
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
+
+  // Escucha cuando Supabase autoconfirme el inicio de sesión desde el Popup
+  useEffect(() => {
+    if (!isOpen) return
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        closeGooglePopup()
+        setGoogleLoading(false)
+        onClose()
+      }
+    })
+
+    return () => {
+      subscription.unsubscribe()
+    }
+  }, [isOpen, onClose])
 
   if (!isOpen) return null
 

@@ -12,6 +12,7 @@ import {
   signInUser, 
   signOutUser, 
   loginWithGoogle,
+  closeGooglePopup,
   getUserProfile 
 } from './config/supabase'
 
@@ -64,6 +65,23 @@ function AuthModal({ isOpen, onClose, onSuccess }) {
   const [fullName, setFullName] = useState("")
   const [errorMsg, setErrorMsg] = useState("")
   const [loading, setLoading]   = useState(false)
+
+  // 🎧 Escucha cambios en el estado de autenticación para cerrar el modal y el popup flotante
+  useEffect(() => {
+    if (!isOpen) return
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        closeGooglePopup()
+        if (onSuccess) onSuccess(session.user)
+        onClose()
+      }
+    })
+
+    return () => {
+      subscription.unsubscribe()
+    }
+  }, [isOpen, onClose, onSuccess])
 
   if (!isOpen) return null
 
@@ -122,6 +140,7 @@ function AuthModal({ isOpen, onClose, onSuccess }) {
   }
 
   const handleGoogleAuth = async () => {
+    setErrorMsg("")
     const { error } = await loginWithGoogle()
     if (error) setErrorMsg(error.message)
   }
@@ -650,6 +669,7 @@ export default function App() {
       setUser(u)
 
       if (u) {
+        closeGooglePopup() // Cierra el popup de Google si continúa desplegado
         let { data } = await getUserProfile(u.id)
 
         if (!data) {

@@ -19,6 +19,9 @@ const supabaseAnonKey =
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
+// Variable global para mantener la referencia a la ventana flotante
+let googlePopupRef = null
+
 // 📥 Cargar alojamientos
 export async function getListings() {
   const { data, error } = await supabase
@@ -138,18 +141,47 @@ export async function signUpWithEmail(email, password) {
   return { data, error }
 }
 
+// 🌐 Iniciar Sesión con Google (Ventana Emergente / Popup Flotante)
 export async function loginWithGoogle() {
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
-    options: { 
-      redirectTo: window.location.origin,
+    options: {
+      redirectTo: `${window.location.origin}`,
+      skipBrowserRedirect: true, // Evita redirección completa de la página actual
       queryParams: {
         access_type: 'offline',
         prompt: 'select_account',
       },
-    }
+    },
   })
-  return { data, error }
+
+  if (error) return { data: null, error }
+
+  if (data?.url) {
+    const width = 500
+    const height = 600
+    const left = window.screenX + (window.outerWidth - width) / 2
+    const top = window.screenY + (window.outerHeight - height) / 2
+
+    // Guarda la referencia de la ventana emergente
+    googlePopupRef = window.open(
+      data.url,
+      'GoogleLoginPopup',
+      `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,status=yes`
+    )
+
+    if (googlePopupRef) googlePopupRef.focus()
+  }
+
+  return { data, error: null }
+}
+
+// Función auxiliar para cerrar la ventana emergente flotante de Google
+export function closeGooglePopup() {
+  if (googlePopupRef && !googlePopupRef.closed) {
+    googlePopupRef.close()
+    googlePopupRef = null
+  }
 }
 
 export async function signOutUser() {
