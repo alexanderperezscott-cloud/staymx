@@ -19,7 +19,7 @@ const supabaseAnonKey =
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
-// Variable global para mantener la referencia a la ventana flotante
+// Variable global para mantener la referencia a la ventana flotante en caso de abrirse
 let googlePopupRef = null
 
 // 📥 Cargar alojamientos
@@ -141,40 +141,22 @@ export async function signUpWithEmail(email, password) {
   return { data, error }
 }
 
-// 🌐 Iniciar Sesión con Google (Ventana Emergente / Popup Flotante)
+// 🌐 Iniciar Sesión con Google OAuth
 export async function loginWithGoogle() {
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
       redirectTo: `${window.location.origin}`,
-      skipBrowserRedirect: true,
       queryParams: {
         access_type: 'offline',
         prompt: 'select_account',
       },
     },
   })
-
-  if (error) return { data: null, error }
-
-  if (data?.url) {
-    const width = 500
-    const height = 600
-    const left = window.screenX + (window.outerWidth - width) / 2
-    const top = window.screenY + (window.outerHeight - height) / 2
-
-    googlePopupRef = window.open(
-      data.url,
-      'GoogleLoginPopup',
-      `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,status=yes`
-    )
-
-    if (googlePopupRef) googlePopupRef.focus()
-  }
-
-  return { data, error: null }
+  return { data, error }
 }
 
+// Cierre seguro del popup flotante de Google
 export function closeGooglePopup() {
   if (googlePopupRef && !googlePopupRef.closed) {
     googlePopupRef.close()

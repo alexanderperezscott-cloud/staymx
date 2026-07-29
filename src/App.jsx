@@ -66,7 +66,7 @@ function AuthModal({ isOpen, onClose, onSuccess }) {
   const [errorMsg, setErrorMsg] = useState("")
   const [loading, setLoading]   = useState(false)
 
-  // 🎧 Escucha cambios en el estado de autenticación para cerrar el modal y el popup flotante
+  // Escucha cambios en el estado de autenticación para cerrar el modal automáticamente
   useEffect(() => {
     if (!isOpen) return
 
@@ -89,13 +89,11 @@ function AuthModal({ isOpen, onClose, onSuccess }) {
     e.preventDefault()
     setErrorMsg("")
 
-    // 1. Validar correo sintácticamente real
     if (!validateEmail(email)) {
       setErrorMsg("Ingresa una dirección de correo válida (ejemplo: nombre@dominio.com).")
       return
     }
 
-    // 2. Bloquear dominios temporales o descartables comunes
     const disposableDomains = ["mailinator.com", "yopmail.com", "tempmail.com", "10minutemail.com"]
     const domain = email.split("@")[1]
     if (disposableDomains.includes(domain)) {
@@ -669,7 +667,7 @@ export default function App() {
       setUser(u)
 
       if (u) {
-        closeGooglePopup() // Cierra el popup de Google si continúa desplegado
+        closeGooglePopup()
         let { data } = await getUserProfile(u.id)
 
         if (!data) {
