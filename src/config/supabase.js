@@ -147,7 +147,7 @@ export async function loginWithGoogle() {
     provider: 'google',
     options: {
       redirectTo: `${window.location.origin}`,
-      skipBrowserRedirect: true, // Evita redirección completa de la página actual
+      skipBrowserRedirect: true,
       queryParams: {
         access_type: 'offline',
         prompt: 'select_account',
@@ -163,7 +163,6 @@ export async function loginWithGoogle() {
     const left = window.screenX + (window.outerWidth - width) / 2
     const top = window.screenY + (window.outerHeight - height) / 2
 
-    // Guarda la referencia de la ventana emergente
     googlePopupRef = window.open(
       data.url,
       'GoogleLoginPopup',
@@ -176,7 +175,6 @@ export async function loginWithGoogle() {
   return { data, error: null }
 }
 
-// Función auxiliar para cerrar la ventana emergente flotante de Google
 export function closeGooglePopup() {
   if (googlePopupRef && !googlePopupRef.closed) {
     googlePopupRef.close()
