@@ -260,3 +260,9 @@ export async function getCurrentUser() {
   const { data: { session } } = await supabase.auth.getSession()
   return session?.user ?? null
 }
+// Cierra el popup de autenticación con Google si fue abierto
+export function closeGooglePopup() {
+  if (window.opener && !window.opener.closed) {
+    window.close()
+  }
+}
