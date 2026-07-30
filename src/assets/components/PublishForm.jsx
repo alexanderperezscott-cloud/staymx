@@ -1,0 +1,233 @@
+// src/assets/components/PublishForm.jsx
+import React, { useState } from 'react'
+import { createListing } from '../../config/supabase'
+import { mexicoLocations, tiposOpc, amenidadesOpc } from '../../data/initialData'
+
+function Field({ label, error, children }) {
+  return (
+    <div>
+      <label className="text-xs font-semibold text-gray-600 dark:text-gray-400 block mb-1">{label}</label>
+      {children}
+      {error && <p className="text-rose-500 text-xs mt-1">{error}</p>}
+    </div>
+  )
+}
+
+const inputCls = "w-full border border-gray-200 dark:border-gray-800 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-rose-300 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors"
+
+export default function PublishForm({ onPublish, onCancel }) {
+  const [step, setStep]       = useState(1)
+  const [preview, setPreview] = useState(null)
+  const [errors, setErrors]   = useState({})
+  const [loading, setLoading] = useState(false)
+
+  const [selectedState, setSelectedState] = useState("Campeche")
+  const [form, setForm] = useState({
+    title:"", type:"Casa", price:"", guests:2, beds:1, baths:1,
+    description:"", address:"", city:"Campeche Centro", amenities:[], imgUrl:""
+  })
+
+  const set = (k,v) => setForm(p => ({...p, [k]: v}))
+
+  const toggleAmenity = (amenity) => {
+    setForm(p => ({
+      ...p,
+      amenities: p.amenities.includes(amenity)
+        ? p.amenities.filter(a => a !== amenity)
+        : [...p.amenities, amenity]
+    }))
+  }
+
+  const handleImg = (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => { setPreview(ev.target.result); set("imgUrl", ev.target.result) }
+    reader.readAsDataURL(file)
+  }
+
+  const validateStep = () => {
+    const e = {}
+    if (step===1 && (!form.title.trim() || !form.price || +form.price <= 0)) e.title = "Campos obligatorios requeridos"
+    if (step===2 && (!form.address.trim())) e.address = "Ingresa la dirección exacta"
+    if (step===3 && (!form.imgUrl || !form.description.trim())) e.img = "Agrega una foto y descripción"
+    setErrors(e)
+    return Object.keys(e).length === 0
+  }
+
+  const handleSubmit = async () => {
+    if (!validateStep()) return
+    setLoading(true)
+
+    const newListingData = {
+      title: form.title, 
+      type: form.type, 
+      price: +form.price, 
+      guests: +form.guests,
+      beds: +form.beds, 
+      baths: +form.baths, 
+      address: form.address, 
+      city: form.city,
+      state: selectedState, 
+      description: form.description, 
+      amenities: form.amenities, 
+      img: form.imgUrl,
+    }
+
+    const { data, error } = await createListing(newListingData)
+    setLoading(false)
+
+    if (error) {
+      alert("Error al publicar: " + error.message)
+      return
+    }
+
+    if (data && data.length > 0) {
+      alert("¡Tu alojamiento se ha publicado con éxito en StayMX!")
+      onPublish(data[0])
+    }
+  }
+
+  return (
+    <div className="max-w-3xl mx-auto px-6 py-10 text-gray-900 dark:text-gray-50">
+      <button onClick={onCancel} className="text-sm font-semibold text-gray-400 hover:text-gray-600 mb-6 flex items-center gap-1">← Cancelar y salir</button>
+      
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-3xl font-black">Registra tu espacio en StayMX</h1>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Conviértete en Anfitrión y comparte tu propiedad con huéspedes de todo México.</p>
+        </div>
+        <span className="text-xs font-bold bg-rose-100 text-rose-600 px-3 py-1 rounded-full">Paso {step} de 3</span>
+      </div>
+
+      {step===1 && (
+        <div className="flex flex-col gap-5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-6 rounded-3xl shadow-sm">
+          <h2 className="font-bold text-lg text-gray-800 dark:text-gray-200">1. Datos principales del alojamiento</h2>
+          
+          <Field label="Título de tu publicación *" error={errors.title}>
+            <input value={form.title} onChange={e=>set("title",e.target.value)} placeholder="Ej. Hermoso Loft Colonial en el Centro" className={inputCls}/>
+          </Field>
+
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Tipo de Propiedad">
+              <select value={form.type} onChange={e=>set("type",e.target.value)} className={inputCls}>
+                {tiposOpc.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </Field>
+
+            <Field label="Precio por noche (MXN) *">
+              <input type="number" min="100" value={form.price} onChange={e=>set("price",e.target.value)} placeholder="Ej. 1200" className={inputCls}/>
+            </Field>
+          </div>
+
+          <div className="grid grid-cols-3 gap-4 border-t border-gray-100 dark:border-gray-800 pt-4">
+            <Field label="Capacidad (Huéspedes)">
+              <input type="number" min="1" max="20" value={form.guests} onChange={e=>set("guests",+e.target.value)} className={inputCls}/>
+            </Field>
+
+            <Field label="Camas">
+              <input type="number" min="1" max="10" value={form.beds} onChange={e=>set("beds",+e.target.value)} className={inputCls}/>
+            </Field>
+
+            <Field label="Baños">
+              <input type="number" min="1" max="10" value={form.baths} onChange={e=>set("baths",+e.target.value)} className={inputCls}/>
+            </Field>
+          </div>
+        </div>
+      )}
+
+      {step===2 && (
+        <div className="flex flex-col gap-5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-6 rounded-3xl shadow-sm">
+          <h2 className="font-bold text-lg text-gray-800 dark:text-gray-200">2. Ubicación y Amenidades (Dropdowns)</h2>
+
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Estado de la República">
+              <select 
+                value={selectedState} 
+                onChange={e => {
+                  setSelectedState(e.target.value)
+                  set("city", mexicoLocations[e.target.value][0])
+                }} 
+                className={inputCls}
+              >
+                {Object.keys(mexicoLocations).map(st => <option key={st} value={st}>{st}</option>)}
+              </select>
+            </Field>
+
+            <Field label="Ciudad / Municipio">
+              <select value={form.city} onChange={e=>set("city",e.target.value)} className={inputCls}>
+                {mexicoLocations[selectedState].map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </Field>
+          </div>
+
+          <Field label="Dirección exacta *" error={errors.address}>
+            <input value={form.address} onChange={e=>set("address",e.target.value)} placeholder="Ej. Calle 12 #45 por 59 y 61, Col. Centro" className={inputCls}/>
+          </Field>
+
+          <div className="border-t border-gray-100 dark:border-gray-800 pt-4">
+            <label className="text-xs font-semibold text-gray-600 dark:text-gray-400 block mb-2">¿Qué servicios ofrece tu alojamiento?</label>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {amenidadesOpc.map(a => {
+                const checked = form.amenities.includes(a)
+                return (
+                  <button
+                    key={a}
+                    type="button"
+                    onClick={() => toggleAmenity(a)}
+                    className={`py-2 px-3 rounded-xl text-xs font-semibold border transition-all text-left flex items-center justify-between ${
+                      checked ? "bg-rose-50 border-rose-500 text-rose-600 dark:bg-rose-950/40" : "bg-gray-50 border-gray-200 dark:bg-gray-950 dark:border-gray-800 text-gray-600"
+                    }`}
+                  >
+                    {a} {checked && "✓"}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {step===3 && (
+        <div className="flex flex-col gap-5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-6 rounded-3xl shadow-sm">
+          <h2 className="font-bold text-lg text-gray-800 dark:text-gray-200">3. Fotografía y Descripción</h2>
+
+          <Field label="Fotografía de la propiedad *" error={errors.img}>
+            <input type="file" accept="image/*" onChange={handleImg} className={inputCls}/>
+            {preview && (
+              <img src={preview} alt="Vista previa" className="w-full h-48 object-cover rounded-2xl mt-3 border border-gray-200"/>
+            )}
+          </Field>
+
+          <Field label="Descripción detallada *">
+            <textarea 
+              value={form.description} 
+              onChange={e=>set("description",e.target.value)} 
+              rows={4} 
+              placeholder="Describe lo que hace especial a tu propiedad, zonas cercanas, ambiente, etc." 
+              className={inputCls}
+            />
+          </Field>
+        </div>
+      )}
+
+      <div className="flex justify-between mt-8">
+        {step > 1 ? (
+          <button onClick={() => setStep(s => s - 1)} className="px-6 py-2.5 border border-gray-300 dark:border-gray-700 rounded-xl text-sm font-bold">
+            Anterior
+          </button>
+        ) : <div/>}
+
+        {step < 3 ? (
+          <button onClick={() => { if (validateStep()) setStep(s => s + 1) }} className="bg-rose-500 hover:bg-rose-600 text-white px-8 py-2.5 rounded-xl text-sm font-bold shadow-md">
+            Siguiente
+          </button>
+        ) : (
+          <button onClick={handleSubmit} disabled={loading} className="bg-rose-500 hover:bg-rose-600 text-white px-8 py-2.5 rounded-xl text-sm font-bold shadow-md">
+            {loading ? "Publicando..." : "Publicar propiedad 🏡"}
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}

@@ -45,6 +45,16 @@ export default function Header({
             Explorar
           </button>
 
+          {/* MIS RESERVACIONES */}
+          {user && (
+            <button 
+              onClick={() => setPage("reservations")} 
+              className={`hover:text-rose-500 transition-colors ${page === "reservations" ? "text-rose-500 font-bold" : ""}`}
+            >
+              Mis Reservaciones
+            </button>
+          )}
+
           {/* FAVORITOS */}
           <button 
             onClick={() => setPage("favorites")} 

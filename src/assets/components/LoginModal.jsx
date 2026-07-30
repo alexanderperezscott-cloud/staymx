@@ -1,12 +1,6 @@
-// src/components/LoginModal.jsx
+// src/assets/components/LoginModal.jsx
 import React, { useState, useEffect } from 'react'
-import { 
-  supabase, 
-  loginWithEmail, 
-  signUpWithEmail, 
-  loginWithGoogle, 
-  closeGooglePopup 
-} from '../config/supabase'
+import { supabase, loginWithEmail, signUpWithEmail, loginWithGoogle, closeGooglePopup } from '../../config/supabase'
 
 export default function LoginModal({ isOpen, onClose }) {
   const [isSignUp, setIsSignUp] = useState(false)
