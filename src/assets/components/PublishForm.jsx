@@ -17,14 +17,15 @@ const inputCls = "w-full border border-gray-200 dark:border-gray-800 rounded-xl 
 
 export default function PublishForm({ onPublish, onCancel }) {
   const [step, setStep]       = useState(1)
-  const [preview, setPreview] = useState(null)
+  const [images, setImages]   = useState([])
+  const [imageUrlInput, setImageUrlInput] = useState('')
   const [errors, setErrors]   = useState({})
   const [loading, setLoading] = useState(false)
 
   const [selectedState, setSelectedState] = useState("Campeche")
   const [form, setForm] = useState({
-    title:"", type:"Casa", price:"", guests:2, beds:1, baths:1,
-    description:"", address:"", city:"Campeche Centro", amenities:[], imgUrl:""
+    title:"", type:"Casa", price:"", phone:"", guests:2, beds:1, baths:1,
+    description:"", address:"", city:"Campeche Centro", amenities:[]
   })
 
   const set = (k,v) => setForm(p => ({...p, [k]: v}))
@@ -38,19 +39,31 @@ export default function PublishForm({ onPublish, onCancel }) {
     }))
   }
 
-  const handleImg = (e) => {
+  const handleFileUpload = (e) => {
     const file = e.target.files[0]
     if (!file) return
     const reader = new FileReader()
-    reader.onload = (ev) => { setPreview(ev.target.result); set("imgUrl", ev.target.result) }
+    reader.onload = (ev) => { 
+      setImages(prev => [...prev, ev.target.result])
+    }
     reader.readAsDataURL(file)
+  }
+
+  const handleAddImageUrl = () => {
+    if (!imageUrlInput.trim()) return
+    setImages(prev => [...prev, imageUrlInput.trim()])
+    setImageUrlInput('')
+  }
+
+  const removeImage = (index) => {
+    setImages(prev => prev.filter((_, i) => i !== index))
   }
 
   const validateStep = () => {
     const e = {}
-    if (step===1 && (!form.title.trim() || !form.price || +form.price <= 0)) e.title = "Campos obligatorios requeridos"
+    if (step===1 && (!form.title.trim() || !form.price || +form.price <= 0 || !form.phone.trim())) e.title = "Todos los campos con * son obligatorios"
     if (step===2 && (!form.address.trim())) e.address = "Ingresa la dirección exacta"
-    if (step===3 && (!form.imgUrl || !form.description.trim())) e.img = "Agrega una foto y descripción"
+    if (step===3 && (images.length === 0 || !form.description.trim())) e.img = "Agrega al menos una foto y descripción"
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -63,6 +76,7 @@ export default function PublishForm({ onPublish, onCancel }) {
       title: form.title, 
       type: form.type, 
       price: +form.price, 
+      phone: form.phone,
       guests: +form.guests,
       beds: +form.beds, 
       baths: +form.baths, 
@@ -71,7 +85,8 @@ export default function PublishForm({ onPublish, onCancel }) {
       state: selectedState, 
       description: form.description, 
       amenities: form.amenities, 
-      img: form.imgUrl,
+      img: images[0],
+      images: images
     }
 
     const { data, error } = await createListing(newListingData)
@@ -120,6 +135,16 @@ export default function PublishForm({ onPublish, onCancel }) {
             </Field>
           </div>
 
+          <Field label="Teléfono de contacto del anfitrión *">
+            <input 
+              type="tel" 
+              value={form.phone} 
+              onChange={e => set("phone", e.target.value)} 
+              placeholder="Ej. +52 981 123 4567" 
+              className={inputCls}
+            />
+          </Field>
+
           <div className="grid grid-cols-3 gap-4 border-t border-gray-100 dark:border-gray-800 pt-4">
             <Field label="Capacidad (Huéspedes)">
               <input type="number" min="1" max="20" value={form.guests} onChange={e=>set("guests",+e.target.value)} className={inputCls}/>
@@ -138,7 +163,7 @@ export default function PublishForm({ onPublish, onCancel }) {
 
       {step===2 && (
         <div className="flex flex-col gap-5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-6 rounded-3xl shadow-sm">
-          <h2 className="font-bold text-lg text-gray-800 dark:text-gray-200">2. Ubicación y Amenidades (Dropdowns)</h2>
+          <h2 className="font-bold text-lg text-gray-800 dark:text-gray-200">2. Ubicación y Amenidades</h2>
 
           <div className="grid grid-cols-2 gap-4">
             <Field label="Estado de la República">
@@ -190,12 +215,45 @@ export default function PublishForm({ onPublish, onCancel }) {
 
       {step===3 && (
         <div className="flex flex-col gap-5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-6 rounded-3xl shadow-sm">
-          <h2 className="font-bold text-lg text-gray-800 dark:text-gray-200">3. Fotografía y Descripción</h2>
+          <h2 className="font-bold text-lg text-gray-800 dark:text-gray-200">3. Galería de Fotos y Descripción</h2>
 
-          <Field label="Fotografía de la propiedad *" error={errors.img}>
-            <input type="file" accept="image/*" onChange={handleImg} className={inputCls}/>
-            {preview && (
-              <img src={preview} alt="Vista previa" className="w-full h-48 object-cover rounded-2xl mt-3 border border-gray-200"/>
+          <Field label="Agregar fotos del alojamiento *" error={errors.img}>
+            <div className="flex gap-2 mb-3">
+              <input 
+                type="url" 
+                placeholder="Pegar URL de la imagen (Ej. https://...)" 
+                value={imageUrlInput}
+                onChange={e => setImageUrlInput(e.target.value)}
+                className={inputCls}
+              />
+              <button 
+                type="button" 
+                onClick={handleAddImageUrl}
+                className="px-4 py-2.5 bg-gray-800 text-white rounded-xl text-xs font-bold hover:bg-gray-700 shrink-0"
+              >
+                + Añadir URL
+              </button>
+            </div>
+
+            <div className="relative">
+              <input type="file" accept="image/*" onChange={handleFileUpload} className={inputCls}/>
+            </div>
+
+            {images.length > 0 && (
+              <div className="grid grid-cols-3 gap-3 mt-4">
+                {images.map((url, idx) => (
+                  <div key={idx} className="relative group rounded-xl overflow-hidden h-28 border border-gray-200 dark:border-gray-800">
+                    <img src={url} alt={`Preview ${idx}`} className="w-full h-full object-cover"/>
+                    <button 
+                      type="button"
+                      onClick={() => removeImage(idx)}
+                      className="absolute top-1 right-1 bg-red-600 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center font-bold shadow"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
             )}
           </Field>
 

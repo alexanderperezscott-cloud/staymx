@@ -23,7 +23,7 @@ export default function App() {
   const [page, setPage]                       = useState("home")
   const [selectedListing, setSelectedListing] = useState(null)
 
-  // Autenticación y Rol
+  // Auth & Roles
   const [user, setUser]         = useState(null)
   const [userRole, setUserRole] = useState("user")
   const [authOpen, setAuthOpen] = useState(false)
@@ -67,14 +67,14 @@ export default function App() {
     return () => subscription.unsubscribe()
   }, [])
 
-  // Modo Oscuro
+  // Dark Mode
   const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem("staymx_dark_mode") === "true")
   useEffect(() => {
     document.documentElement.classList.toggle("dark", isDarkMode)
     localStorage.setItem("staymx_dark_mode", isDarkMode)
   }, [isDarkMode])
 
-  // Cargar Alojamientos exclusivamente desde Supabase
+  // Load Listings from Supabase
   const [listings, setListings] = useState([])
 
   async function fetchListings() {
@@ -82,13 +82,15 @@ export default function App() {
     
     if (!error && data && data.length > 0) {
       const dbListings = data.map(i => ({
-        id: i.id, // UUID Real de Supabase
+        id: i.id,
         title: i.title, 
         location: `${i.city || i.address || 'México'}, ${i.state || ''}`, 
         price: i.price_per_night || i.price,
+        phone: i.phone || 'No especificado',
         rating: 5.0, 
         reviews: 0, 
         img: i.image_url || i.img || "https://images.unsplash.com/photo-1587061949409-02df41d5e562?w=800&q=80", 
+        images: i.images || [i.image_url || i.img].filter(Boolean),
         type: i.property_type || 'Alojamiento', 
         guests: i.guests || 2,
         beds: i.beds || 1, 
@@ -109,7 +111,7 @@ export default function App() {
     fetchListings()
   }, [])
 
-  // Cargar Reservaciones de la BD
+  // Load Reservations
   const [reservations, setReservations] = useState([])
   async function fetchRes() {
     const { data, error } = await getReservations()
@@ -120,7 +122,7 @@ export default function App() {
     fetchRes()
   }, [])
 
-  // Cancelar Reservación
+  // Cancel Reservation
   const handleCancelReservation = async (reservationId) => {
     if (!window.confirm("¿Estás seguro de que deseas cancelar esta reservación?")) return
 
@@ -134,7 +136,7 @@ export default function App() {
     }
   }
 
-  // Favoritos
+  // Favorites
   const [savedIds, setSavedIds] = useState(() => {
     try { return JSON.parse(localStorage.getItem("staymx_favorites")) || [] } catch { return [] }
   })
@@ -147,7 +149,11 @@ export default function App() {
   }
 
   const savedListings = listings.filter(l => savedIds.includes(l.id))
-  const userReservations = reservations.filter(r => user && r.guest_id === user.id)
+  
+  const userActiveReservations = reservations.filter(
+    r => user && r.guest_id === user.id && r.status !== 'cancelled'
+  )
+  const userReservationsAll = reservations.filter(r => user && r.guest_id === user.id)
 
   const handleSurpriseMe = () => {
     if (listings.length === 0) return
@@ -182,22 +188,23 @@ export default function App() {
         onSignOut={signOutUser}
         onOpenPublish={() => user ? setPage("publish") : setAuthOpen(true)}
         savedCount={savedIds.length}
+        reservationsCount={userActiveReservations.length}
       />
 
-      {/* Modal Autenticación */}
+      {/* Auth Modal */}
       <AuthModal isOpen={authOpen} onClose={() => setAuthOpen(false)} onSuccess={u => setUser(u)} />
 
-      {/* RUTA: DASHBOARD ADMIN */}
+      {/* ADMIN ROUTE */}
       {page === "admin" && userRole === "admin" && (
         <AdminDashboard listings={listings} onDelete={handleDeleteListing} />
       )}
 
-      {/* RUTA: FORMULARIO PUBLICAR */}
+      {/* PUBLISH ROUTE */}
       {page === "publish" && (
         <PublishForm onPublish={() => { fetchListings(); setPage("explore") }} onCancel={() => setPage("home")}/>
       )}
 
-      {/* RUTA: INICIO (HOME) */}
+      {/* HOME ROUTE */}
       {page === "home" && (
         <div>
           <div className="relative bg-gray-900 text-white py-28 px-6 text-center overflow-hidden flex items-center justify-center">
@@ -223,7 +230,7 @@ export default function App() {
         </div>
       )}
 
-      {/* RUTA: MIS RESERVACIONES */}
+      {/* MIS RESERVACIONES ROUTE */}
       {page === "reservations" && (
         <div className="max-w-7xl mx-auto px-6 py-10">
           <h2 className="text-3xl font-black mb-2">Tus Reservaciones</h2>
@@ -236,7 +243,7 @@ export default function App() {
                 Iniciar sesión
               </button>
             </div>
-          ) : userReservations.length === 0 ? (
+          ) : userReservationsAll.length === 0 ? (
             <div className="text-center py-20 text-gray-400">
               <p className="text-base font-semibold">Aún no tienes reservaciones registradas.</p>
               <button onClick={() => setPage("explore")} className="mt-4 bg-rose-500 text-white px-6 py-2 rounded-full font-bold text-xs">
@@ -245,7 +252,7 @@ export default function App() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {userReservations.map(r => {
+              {userReservationsAll.map(r => {
                 const listingInfo = listings.find(l => l.id === r.listing_id)
                 const isCancelled = r.status === 'cancelled'
 
@@ -256,8 +263,12 @@ export default function App() {
                     <div className="flex-1">
                       <h3 className="font-bold text-base text-gray-900 dark:text-gray-100">{listingInfo?.title || 'Alojamiento en StayMX'}</h3>
                       <p className="text-xs text-rose-500 font-semibold mt-1">Del {r.check_in} al {r.check_out}</p>
-                      <p className="text-xs text-gray-400 mt-1">Huéspedes: {r.guests_count || 1} · Total: ${r.total_price ? Number(r.total_price).toLocaleString() : '0'} MXN</p>
+                      <p className="text-xs text-gray-400 mt-0.5">Huéspedes: {r.guests_count || 1} · Total: ${r.total_price ? Number(r.total_price).toLocaleString() : '0'} MXN</p>
                       
+                      <p className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold mt-1 flex items-center gap-1">
+                        📞 Anfitrión: <a href={`tel:${listingInfo?.phone}`} className="underline hover:text-emerald-500">{listingInfo?.phone || 'No especificado'}</a>
+                      </p>
+
                       <div className="flex items-center justify-between mt-3">
                         <span className={`px-2.5 py-0.5 text-[10px] font-bold rounded-full ${
                           isCancelled 
@@ -285,7 +296,7 @@ export default function App() {
         </div>
       )}
 
-      {/* RUTA: EXPLORAR */}
+      {/* EXPLORE ROUTE */}
       {page === "explore" && (
         <div className="max-w-7xl mx-auto px-6 py-10">
           <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
@@ -310,7 +321,7 @@ export default function App() {
         </div>
       )}
 
-      {/* RUTA: FAVORITOS */}
+      {/* FAVORITES ROUTE */}
       {page === "favorites" && (
         <div className="max-w-7xl mx-auto px-6 py-10">
           <h2 className="text-3xl font-black mb-2">Tus Alojamientos Favoritos</h2>
@@ -334,7 +345,7 @@ export default function App() {
         </div>
       )}
 
-      {/* Modal Reservación */}
+      {/* Reservation Modal */}
       <ReservationModal 
         listing={selectedListing} 
         onClose={() => setSelectedListing(null)} 
