@@ -1,6 +1,12 @@
 // src/assets/components/LoginModal.jsx
 import React, { useState, useEffect } from 'react'
-import { supabase, loginWithEmail, signUpWithEmail, loginWithGoogle, closeGooglePopup } from '../../config/supabase'
+import { 
+  supabase, 
+  loginWithEmail, 
+  signUpWithEmail, 
+  loginWithGoogle, 
+  closeGooglePopup 
+} from '../../config/supabase'
 
 export default function LoginModal({ isOpen, onClose }) {
   const [isSignUp, setIsSignUp] = useState(false)
@@ -10,7 +16,6 @@ export default function LoginModal({ isOpen, onClose }) {
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
 
-  // Escucha cuando Supabase autoconfirme el inicio de sesión desde el Popup
   useEffect(() => {
     if (!isOpen) return
 
@@ -68,7 +73,6 @@ export default function LoginModal({ isOpen, onClose }) {
     <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 max-w-md w-full space-y-6 shadow-2xl relative text-slate-100">
         
-        {/* Botón Cerrar Modal */}
         <button 
           onClick={onClose} 
           className="absolute top-4 right-4 text-slate-400 hover:text-white text-lg transition duration-150"
@@ -76,19 +80,16 @@ export default function LoginModal({ isOpen, onClose }) {
           ✕
         </button>
 
-        {/* Título */}
         <h2 className="text-2xl font-bold text-center">
           {isSignUp ? 'Crear Cuenta en StayMX' : 'Iniciar Sesión en StayMX'}
         </h2>
 
-        {/* Alerta de Error */}
         {errorMessage && (
           <div className="p-3 bg-red-500/10 border border-red-500/30 text-red-400 text-xs rounded-lg text-center">
             {errorMessage}
           </div>
         )}
 
-        {/* Botón de Autenticación con Google */}
         <button
           onClick={handleGoogleAuth}
           type="button"
@@ -110,14 +111,12 @@ export default function LoginModal({ isOpen, onClose }) {
           )}
         </button>
 
-        {/* Separador */}
         <div className="flex items-center gap-3">
           <div className="h-px bg-slate-800 flex-1"></div>
           <span className="text-xs text-slate-500 font-mono">O CON CORREO</span>
           <div className="h-px bg-slate-800 flex-1"></div>
         </div>
 
-        {/* Formulario Tradicional */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-xs font-mono text-slate-400 mb-1">
@@ -156,7 +155,6 @@ export default function LoginModal({ isOpen, onClose }) {
           </button>
         </form>
 
-        {/* Switch Iniciar Sesión / Registro */}
         <p className="text-xs text-center text-slate-400">
           {isSignUp ? '¿Ya tienes cuenta?' : '¿No tienes cuenta aun?'}{' '}
           <button

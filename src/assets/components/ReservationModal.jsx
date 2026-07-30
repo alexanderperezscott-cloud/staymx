@@ -26,7 +26,7 @@ export default function ReservationModal({ listing, onClose, onReserve, reservat
   })
 
   const nights = Math.max(1, diffDays(checkIn, checkOut))
-  const base   = listing.price * nights
+  const base   = (listing.price || listing.price_per_night || 0) * nights
   const fee    = Math.round(base * 0.12)
   const total  = base + fee
 
@@ -55,18 +55,7 @@ export default function ReservationModal({ listing, onClose, onReserve, reservat
       return
     }
 
-    onReserve({
-      listingId: listing.id,
-      title: listing.title,
-      img: listing.img,
-      location: listing.location,
-      checkIn,
-      checkOut,
-      guests,
-      nights,
-      total,
-      id: data ? data[0]?.id : Date.now()
-    })
+    onReserve()
     setDone(true)
   }
 
@@ -74,7 +63,7 @@ export default function ReservationModal({ listing, onClose, onReserve, reservat
     <div onClick={onClose} className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fadeIn">
       <div onClick={e => e.stopPropagation()} className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-3xl w-full max-w-lg max-h-[90vh] overflow-auto shadow-2xl transition-all duration-300">
         <div className="relative h-56">
-          <img src={listing.img} alt={listing.title} className="w-full h-full object-cover"/>
+          <img src={listing.img || listing.image} alt={listing.title} className="w-full h-full object-cover"/>
           <button onClick={onClose} className="absolute top-4 right-4 bg-white/90 dark:bg-gray-850/90 text-gray-700 rounded-full w-8 h-8 flex items-center justify-center font-bold">✕</button>
         </div>
         <div className="p-6">

@@ -1,9 +1,9 @@
-// src/components/ListingCard.jsx
+// src/assets/components/ListingCard.jsx
 import React from 'react';
 
 const ListingCard = ({ listing, onClick, savedIds = [], onToggleSave }) => {
   const isSaved = savedIds.includes(listing.id);
-  const displayImg = listing.image || listing.img || 'https://images.unsplash.com/photo-1587061949409-02df41d5e562?w=600&q=80';
+  const displayImg = listing.img || listing.image || 'https://images.unsplash.com/photo-1587061949409-02df41d5e562?w=600&q=80';
   const displayTitle = listing.title || 'Alojamiento';
   const displayRating = listing.rating ? listing.rating.toFixed(1) : "5.0";
   const displayPrice = listing.price || listing.price_per_night || 0;
@@ -11,7 +11,6 @@ const ListingCard = ({ listing, onClick, savedIds = [], onToggleSave }) => {
 
   return (
     <div onClick={() => onClick && onClick(listing)} className="group cursor-pointer">
-      {/* Contenedor de Imagen con Ratio de Aspecto */}
       <div className="relative aspect-[20/19] w-full overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-800 bg-gray-100 dark:bg-gray-900 transition-colors duration-300">
         <img 
           src={displayImg} 
@@ -19,14 +18,12 @@ const ListingCard = ({ listing, onClick, savedIds = [], onToggleSave }) => {
           className="h-full w-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
         />
         
-        {/* Etiqueta 'Favorito entre huéspedes' / Superhost */}
         {(listing.guestFavorite || listing.superhost) && (
           <div className="absolute top-3 left-3 bg-white/90 dark:bg-gray-950/80 backdrop-blur-sm text-gray-950 dark:text-gray-50 px-3 py-1 rounded-full text-xs font-semibold shadow-sm border border-gray-100 dark:border-gray-800 transition-colors duration-300">
-            Favorito entre huéspedes
+            🥇 Superhost
           </div>
         )}
         
-        {/* Botón Corazón (Favoritos) */}
         <button 
           onClick={(e) => {
             e.stopPropagation();
@@ -44,13 +41,11 @@ const ListingCard = ({ listing, onClick, savedIds = [], onToggleSave }) => {
         </button>
       </div>
 
-      {/* Detalles del Anuncio */}
       <div className="mt-3 px-1">
         <div className="flex items-center justify-between">
           <h3 className="text-base font-semibold text-gray-950 dark:text-gray-50 truncate transition-colors duration-300 flex-1 pr-2">
             {displayTitle}
           </h3>
-          {/* Calificación */}
           <div className="flex items-center gap-1 text-sm text-gray-950 dark:text-gray-50 transition-colors duration-300 shrink-0">
             <svg fill="currentColor" viewBox="0 0 24 24" className="w-4 h-4 text-gray-950 dark:text-gray-50 transition-colors duration-300">
               <path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 22 12 18.27 5.82 22 7 14.14 2 9.27l6.91-1.01L12 2z"></path>
@@ -62,12 +57,6 @@ const ListingCard = ({ listing, onClick, savedIds = [], onToggleSave }) => {
         <p className="text-sm text-gray-600 dark:text-gray-400 transition-colors duration-300 truncate">
           {displayLocation} {listing.type ? `· ${listing.type}` : ''}
         </p>
-
-        {listing.dates && (
-          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400 transition-colors duration-300">
-            {listing.dates}
-          </p>
-        )}
 
         <p className="mt-1 text-base text-gray-950 dark:text-gray-50 transition-colors duration-300">
           <span className="font-semibold">${Number(displayPrice).toLocaleString('es-MX')} MXN</span>

@@ -27,7 +27,7 @@ export default function AdminDashboard({ listings, onDelete }) {
           {listings.map(l => (
             <div key={l.id} className="p-4 flex items-center justify-between gap-4 hover:bg-gray-50 dark:hover:bg-gray-850/50 transition-colors">
               <div className="flex items-center gap-4 flex-1">
-                <img src={l.img} alt={l.title} className="w-16 h-16 rounded-xl object-cover shrink-0 bg-gray-100"/>
+                <img src={l.img || l.image} alt={l.title} className="w-16 h-16 rounded-xl object-cover shrink-0 bg-gray-100"/>
                 <div>
                   <h3 className="font-bold text-sm text-gray-900 dark:text-gray-100">{l.title}</h3>
                   <p className="text-xs text-gray-500">{l.location} · <span className="font-semibold text-rose-500">${l.price} MXN/noche</span></p>

@@ -74,20 +74,21 @@ export default function App() {
     localStorage.setItem("staymx_dark_mode", isDarkMode)
   }, [isDarkMode])
 
-  // Cargar Alojamientos
-  const [listings, setListings] = useState(initialListings)
+  // Cargar Alojamientos exclusivamente desde Supabase
+  const [listings, setListings] = useState([])
 
   async function fetchListings() {
     const { data, error } = await getListings()
+    
     if (!error && data && data.length > 0) {
       const dbListings = data.map(i => ({
-        id: i.id, 
+        id: i.id, // UUID Real de Supabase
         title: i.title, 
         location: `${i.city || i.address || 'México'}, ${i.state || ''}`, 
         price: i.price_per_night || i.price,
         rating: 5.0, 
         reviews: 0, 
-        img: i.image_url || i.img, 
+        img: i.image_url || i.img || "https://images.unsplash.com/photo-1587061949409-02df41d5e562?w=800&q=80", 
         type: i.property_type || 'Alojamiento', 
         guests: i.guests || 2,
         beds: i.beds || 1, 
@@ -98,10 +99,9 @@ export default function App() {
         address: i.address
       }))
 
-      const existingIds = new Set(dbListings.map(item => item.id))
-      const uniqueInitial = initialListings.filter(item => !existingIds.has(item.id))
-      
-      setListings([...dbListings, ...uniqueInitial])
+      setListings(dbListings)
+    } else {
+      setListings(initialListings)
     }
   }
 
@@ -120,7 +120,7 @@ export default function App() {
     fetchRes()
   }, [])
 
-  // Manejo de Cancelación de Reservación
+  // Cancelar Reservación
   const handleCancelReservation = async (reservationId) => {
     if (!window.confirm("¿Estás seguro de que deseas cancelar esta reservación?")) return
 
@@ -223,7 +223,7 @@ export default function App() {
         </div>
       )}
 
-      {/* RUTA: MIS RESERVACIONES Y CANCELACIÓN */}
+      {/* RUTA: MIS RESERVACIONES */}
       {page === "reservations" && (
         <div className="max-w-7xl mx-auto px-6 py-10">
           <h2 className="text-3xl font-black mb-2">Tus Reservaciones</h2>
@@ -251,7 +251,7 @@ export default function App() {
 
                 return (
                   <div key={r.id} className="border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 rounded-2xl p-5 flex gap-4 items-center shadow-sm relative">
-                    <img src={listingInfo?.img || "https://images.unsplash.com/photo-1587061949409-02df41d5e562?w=400&q=80"} alt="Alojamiento" className="w-24 h-24 rounded-xl object-cover shrink-0"/>
+                    <img src={listingInfo?.img || listingInfo?.image || "https://images.unsplash.com/photo-1587061949409-02df41d5e562?w=400&q=80"} alt="Alojamiento" className="w-24 h-24 rounded-xl object-cover shrink-0"/>
                     
                     <div className="flex-1">
                       <h3 className="font-bold text-base text-gray-900 dark:text-gray-100">{listingInfo?.title || 'Alojamiento en StayMX'}</h3>
