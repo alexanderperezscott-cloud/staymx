@@ -8,20 +8,15 @@ import {
   deleteListing,
   getReservations, 
   createReservation, 
+  createReservationWithPayment,
   signUpUser, 
   signInUser, 
   signOutUser, 
   loginWithGoogle,
   closeGooglePopup,
-  getUserProfile 
+  getUserProfile,
+  uploadAvatar
 } from './config/supabase'
-
-const initialListings = [
-  { id:"11111111-1111-1111-1111-111111111111", title:"Casa colonial en el centro histórico", location:"Campeche, Campeche", price:850, rating:4.97, reviews:184, img:"https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=600&q=80", type:"Casa", guests:6, beds:3, baths:2, superhost:true, amenities:["WiFi","Cocina","A/C","Estacionamiento"] },
-  { id:"22222222-2222-2222-2222-222222222222", title:"Loft moderno con vista al mar", location:"Mérida, Yucatán", price:1200, rating:4.92, reviews:93, img:"https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=600&q=80", type:"Loft", guests:2, beds:1, baths:1, superhost:true, amenities:["WiFi","Alberca","Gym","Balcón"] },
-  { id:"33333333-3333-3333-3333-333333333333", title:"Cabaña en la selva con cenote privado", location:"Valladolid, Yucatán", price:2400, rating:4.99, reviews:57, img:"https://images.unsplash.com/photo-1439130490301-25e322d88054?w=600&q=80", type:"Cabaña", guests:4, beds:2, baths:1, superhost:false, amenities:["WiFi","Cenote","Desayuno","Tours"] },
-  { id:"44444444-4444-4444-4444-444444444444", title:"Departamento minimalista en Polanco", location:"Ciudad de México, CDMX", price:1800, rating:4.85, reviews:221, img:"https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=600&q=80", type:"Departamento", guests:4, beds:2, baths:2, superhost:true, amenities:["WiFi","A/C","Cocina","Netflix"] },
-]
 
 const mexicoLocations = {
   "Campeche": ["Campeche Centro", "Ciudad del Carmen", "Champotón", "Calakmul"],
@@ -65,7 +60,6 @@ function AuthModal({ isOpen, onClose, onSuccess }) {
   const [errorMsg, setErrorMsg] = useState("")
   const [loading, setLoading]   = useState(false)
 
-  // Cierra automáticamente la ventana emergente flotante y el modal al iniciar sesión
   useEffect(() => {
     if (!isOpen) return
 
@@ -255,7 +249,7 @@ function ListingCard({ listing, onClick, savedIds, onToggleSave }) {
         <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{listing.location} · {listing.type}</p>
         <div className="flex justify-between items-baseline mt-1">
           <p className="text-sm text-gray-900 dark:text-gray-50">
-            <strong className="text-base font-bold">${listing.price.toLocaleString()}</strong> MXN<span className="font-normal text-gray-500 dark:text-gray-400 text-xs">/noche</span>
+            <strong className="text-base font-bold">${listing.price ? listing.price.toLocaleString() : "0"}</strong> MXN<span className="font-normal text-gray-500 dark:text-gray-400 text-xs">/noche</span>
           </p>
         </div>
       </div>
@@ -263,13 +257,14 @@ function ListingCard({ listing, onClick, savedIds, onToggleSave }) {
   )
 }
 
-// ── Modal Reservación ─────────────────────────────────────────────────────────
+// ── Modal Reservación y Pago ──────────────────────────────────────────────────
 function Modal({ listing, onClose, onReserve, reservations, user, openAuth }) {
-  const [checkIn, setCheckIn]   = useState(addDays(today,1))
-  const [checkOut, setCheckOut] = useState(addDays(today,4))
-  const [guests, setGuests]     = useState(1)
-  const [done, setDone]         = useState(false)
-  const [loading, setLoading]   = useState(false)
+  const [checkIn, setCheckIn]         = useState(addDays(today,1))
+  const [checkOut, setCheckOut]       = useState(addDays(today,4))
+  const [guests, setGuests]           = useState(1)
+  const [paymentMethod, setPayment]  = useState('card')
+  const [done, setDone]               = useState(false)
+  const [loading, setLoading]         = useState(false)
 
   if (!listing) return null
 
@@ -294,12 +289,13 @@ function Modal({ listing, onClose, onReserve, reservations, user, openAuth }) {
     if (isBlocked) return
 
     setLoading(true)
-    const { data, error } = await createReservation({
+    const { data, error } = await createReservationWithPayment({
       listingId: listing.id,
       checkIn,
       checkOut,
       guests,
-      total
+      total,
+      paymentMethod
     })
 
     setLoading(false)
@@ -319,7 +315,7 @@ function Modal({ listing, onClose, onReserve, reservations, user, openAuth }) {
       guests,
       nights,
       total,
-      id: data[0].id
+      id: data ? data[0]?.id : Date.now()
     })
     setDone(true)
   }
@@ -338,7 +334,7 @@ function Modal({ listing, onClose, onReserve, reservations, user, openAuth }) {
           {done ? (
             <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 rounded-2xl p-6 text-center">
               <p className="text-3xl mb-2">🎉</p>
-              <p className="font-bold text-emerald-700 dark:text-emerald-400 mb-1">¡Reservación confirmada exitosamente!</p>
+              <p className="font-bold text-emerald-700 dark:text-emerald-400 mb-1">¡Reservación y Pago Confirmados!</p>
               <button onClick={onClose} className="bg-emerald-600 text-white px-6 py-2 rounded-full text-sm font-semibold mt-4">Listo</button>
             </div>
           ) : (
@@ -352,6 +348,14 @@ function Modal({ listing, onClose, onReserve, reservations, user, openAuth }) {
                   <label className="text-xs font-semibold text-gray-500 block mb-1">Check-out</label>
                   <input type="date" min={addDays(checkIn,1)} value={checkOut} onChange={e => setCheckOut(e.target.value)} className={inputCls}/>
                 </div>
+              </div>
+
+              <div className="mb-3">
+                <label className="text-xs font-semibold text-gray-500 block mb-1">Método de pago</label>
+                <select value={paymentMethod} onChange={e => setPayment(e.target.value)} className={inputCls}>
+                  <option value="card">💳 Tarjeta de Crédito / Débito</option>
+                  <option value="paypal">🌐 PayPal</option>
+                </select>
               </div>
 
               {isBlocked && (
@@ -371,7 +375,7 @@ function Modal({ listing, onClose, onReserve, reservations, user, openAuth }) {
                   isBlocked ? "bg-gray-300 dark:bg-gray-800 text-gray-500 cursor-not-allowed" : "bg-rose-500 hover:bg-rose-600 text-white shadow-md"
                 }`}
               >
-                {!user ? "Inicia sesión para reservar" : loading ? "Guardando..." : "Confirmar reservación"}
+                {!user ? "Inicia sesión para reservar" : loading ? "Guardando..." : "Confirmar y pagar reservación"}
               </button>
             </div>
           )}
@@ -658,7 +662,7 @@ export default function App() {
   const [userRole, setUserRole] = useState("user")
   const [authOpen, setAuthOpen] = useState(false)
 
-  // Sincronización asegurada de sesión y perfiles
+  // Sincronización de sesión y perfiles
   useEffect(() => {
     async function handleUserSession(session) {
       const u = session?.user ?? null
@@ -709,19 +713,30 @@ export default function App() {
     localStorage.setItem("staymx_dark_mode", isDarkMode)
   }, [isDarkMode])
 
-  // Cargar Alojamientos
-  const [listings, setListings] = useState(initialListings)
+  // Cargar Alojamientos exclusivamente desde Supabase
+  const [listings, setListings] = useState([])
 
   async function fetchListings() {
     const { data, error } = await getListings()
-    if (!error && data && data.length > 0) {
+    if (!error && data) {
       const formatted = data.map(i => ({
-        id: i.id, title: i.title, location: `${i.city}, ${i.state}`, price: i.price_per_night,
-        rating: 5.0, reviews: 0, img: i.image_url, type: i.property_type, guests: i.guests,
-        beds: i.beds, baths: i.baths, superhost: false,
-        amenities: i.amenities || ["WiFi"], description: i.description, address: i.address
+        id: i.id, 
+        title: i.title, 
+        location: `${i.city || i.address || 'México'}, ${i.state || ''}`, 
+        price: i.price_per_night || i.price,
+        rating: 5.0, 
+        reviews: 0, 
+        img: i.image_url || i.img, 
+        type: i.property_type || 'Alojamiento', 
+        guests: i.guests || 2,
+        beds: i.beds || 1, 
+        baths: i.baths || 1, 
+        superhost: false,
+        amenities: i.amenities || ["WiFi"], 
+        description: i.description, 
+        address: i.address
       }))
-      setListings([...formatted, ...initialListings])
+      setListings(formatted)
     }
   }
 
@@ -828,11 +843,15 @@ export default function App() {
 
           <div className="max-w-7xl mx-auto px-6 py-14">
             <h2 className="text-2xl font-bold mb-6">Alojamientos destacados</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {listings.slice(0, 3).map(l => (
-                <ListingCard key={l.id} listing={l} onClick={setSelectedListing} savedIds={savedIds} onToggleSave={toggleSave}/>
-              ))}
-            </div>
+            {listings.length === 0 ? (
+              <p className="text-gray-500 text-sm">Cargando alojamientos registrados o listado vacío...</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {listings.slice(0, 3).map(l => (
+                  <ListingCard key={l.id} listing={l} onClick={setSelectedListing} savedIds={savedIds} onToggleSave={toggleSave}/>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -854,11 +873,17 @@ export default function App() {
             </button>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {listings.map(l => (
-              <ListingCard key={l.id} listing={l} onClick={setSelectedListing} savedIds={savedIds} onToggleSave={toggleSave}/>
-            ))}
-          </div>
+          {listings.length === 0 ? (
+            <div className="text-center py-20 text-gray-400">
+              <p className="text-base font-semibold">No hay alojamientos para mostrar en la base de datos.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {listings.map(l => (
+                <ListingCard key={l.id} listing={l} onClick={setSelectedListing} savedIds={savedIds} onToggleSave={toggleSave}/>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -886,7 +911,7 @@ export default function App() {
         </div>
       )}
 
-      {/* Modal Reservación */}
+      {/* Modal Reservación y Pago */}
       <Modal 
         listing={selectedListing} 
         onClose={() => setSelectedListing(null)} 
