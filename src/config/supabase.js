@@ -73,7 +73,7 @@ export async function deleteListing(listingId) {
 }
 
 // ==========================================
-// 🗓️ RESERVACIONES Y PAGO (FLUKO AIRBNB)
+// 🗓️ RESERVACIONES Y PAGO (FLUJO AIRBNB)
 // ==========================================
 
 export async function getReservations() {
@@ -83,17 +83,17 @@ export async function getReservations() {
   return { data, error }
 }
 
-// Obtiene los rangos de fechas de reservaciones confirmadas para un alojamiento
+// Obtiene los rangos de fechas de reservaciones para un alojamiento
 export async function getListingBookedDates(listingId) {
   const { data, error } = await supabase
     .from('reservations')
     .select('check_in, check_out')
     .eq('listing_id', listingId)
-    .neq('status', 'cancelled') // Ignora reservaciones canceladas
+    .neq('status', 'cancelled')
   return { data, error }
 }
 
-// Crear reservación original (mantenida por compatibilidad)
+// Crear reservación original
 export async function createReservation(reservation) {
   const { data: { session } } = await supabase.auth.getSession()
 
@@ -101,11 +101,13 @@ export async function createReservation(reservation) {
     return { data: null, error: { message: "Debes iniciar sesión para realizar una reservación." } }
   }
 
+  const targetListingId = reservation.listingId || reservation.listing_id
+
   const { data, error } = await supabase
     .from('reservations')
     .insert([
       {
-        listing_id: reservation.listingId,
+        listing_id: targetListingId,
         guest_id: session.user.id,
         check_in: reservation.checkIn,
         check_out: reservation.checkOut,
@@ -126,8 +128,10 @@ export async function createReservationWithPayment(reservation) {
     return { data: null, error: { message: "Debes iniciar sesión para realizar una reservación." } }
   }
 
+  const targetListingId = reservation.listingId || reservation.listing_id
+
   // 1. Verificar si las fechas chocan con reservaciones existentes
-  const { data: existingBookings } = await getListingBookedDates(reservation.listingId)
+  const { data: existingBookings } = await getListingBookedDates(targetListingId)
   
   if (existingBookings && existingBookings.length > 0) {
     const newIn = new Date(reservation.checkIn).getTime()
@@ -152,13 +156,13 @@ export async function createReservationWithPayment(reservation) {
     .from('reservations')
     .insert([
       {
-        listing_id: reservation.listingId,
+        listing_id: targetListingId,
         guest_id: session.user.id,
         check_in: reservation.checkIn,
         check_out: reservation.checkOut,
         guests_count: reservation.guests,
         total_price: reservation.total,
-        payment_method: reservation.paymentMethod || 'card', // 'card' | 'paypal'
+        payment_method: reservation.paymentMethod || 'card',
         status: 'confirmed'
       }
     ])
@@ -247,6 +251,13 @@ export async function loginWithGoogle() {
   return { data, error }
 }
 
+// Cierra el popup de autenticación con Google si fue abierto
+export function closeGooglePopup() {
+  if (window.opener && !window.opener.closed) {
+    window.close()
+  }
+}
+
 export async function signOutUser() {
   const { error } = await supabase.auth.signOut()
   return { error }
@@ -259,10 +270,4 @@ export async function logout() {
 export async function getCurrentUser() {
   const { data: { session } } = await supabase.auth.getSession()
   return session?.user ?? null
-}
-// Cierra el popup de autenticación con Google si fue abierto
-export function closeGooglePopup() {
-  if (window.opener && !window.opener.closed) {
-    window.close()
-  }
 }
