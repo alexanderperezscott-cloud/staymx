@@ -1,3 +1,4 @@
+// src/App.jsx
 import { useState, useEffect } from "react"
 import Header from './assets/components/Header.jsx'
 import { 
@@ -187,6 +188,7 @@ function AuthModal({ isOpen, onClose, onSuccess }) {
           <svg className="w-4 h-4" viewBox="0 0 24 24">
             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
             <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
             <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
           </svg>
           Continuar con Google
@@ -262,19 +264,24 @@ function ListingCard({ listing, onClick, savedIds, onToggleSave }) {
   )
 }
 
-// ── Modal Reservación ─────────────────────────────────────────────────────────
+// ── Modal Reservación con Bloqueo de Fechas Ocupadas ─────────────────────────
 function Modal({ listing, onClose, onReserve, reservations, user, openAuth }) {
-  const [checkIn, setCheckIn]         = useState(addDays(today,1))
-  const [checkOut, setCheckOut]       = useState(addDays(today,4))
-  const [guests, setGuests]           = useState(1)
-  const [paymentMethod, setPayment]  = useState('card')
-  const [done, setDone]               = useState(false)
-  const [loading, setLoading]         = useState(false)
+  const [checkIn, setCheckIn]        = useState(addDays(today, 1))
+  const [checkOut, setCheckOut]      = useState(addDays(today, 4))
+  const [guests, setGuests]          = useState(1)
+  const [paymentMethod, setPayment] = useState('card')
+  const [done, setDone]              = useState(false)
+  const [loading, setLoading]        = useState(false)
 
   if (!listing) return null
 
-  const blocked = (reservations || []).filter(r => r.listing_id === listing.id || r.listingId === listing.id)
-  const isBlocked = blocked.some(r => {
+  // Filter existing active reservations for this property
+  const activeBookings = (reservations || []).filter(
+    r => (r.listing_id === listing.id || r.listingId === listing.id) && r.status !== 'cancelled'
+  )
+
+  // Check if selected range overlaps with existing bookings
+  const isBlocked = activeBookings.some(r => {
     const resIn = r.check_in || r.checkIn
     const resOut = r.check_out || r.checkOut
     return checkIn < resOut && checkOut > resIn
@@ -336,10 +343,22 @@ function Modal({ listing, onClose, onReserve, reservations, user, openAuth }) {
           <h2 className="font-bold text-xl text-gray-900 dark:text-gray-50 mb-1">{listing.title}</h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{listing.location} · {listing.type}</p>
 
+          {activeBookings.length > 0 && (
+            <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-xl text-xs text-amber-800 dark:text-amber-300">
+              <strong>Fechas ya reservadas en este espacio:</strong>
+              <ul className="list-disc pl-4 mt-1 space-y-0.5">
+                {activeBookings.map((b, idx) => (
+                  <li key={idx}>Del <strong>{b.check_in || b.checkIn}</strong> al <strong>{b.check_out || b.checkOut}</strong></li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {done ? (
             <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 rounded-2xl p-6 text-center">
               <p className="text-3xl mb-2">🎉</p>
               <p className="font-bold text-emerald-700 dark:text-emerald-400 mb-1">¡Reservación y Pago Confirmados!</p>
+              <p className="text-xs text-emerald-600 dark:text-emerald-300">Las fechas han quedado bloqueadas para otros usuarios.</p>
               <button onClick={onClose} className="bg-emerald-600 text-white px-6 py-2 rounded-full text-sm font-semibold mt-4">Listo</button>
             </div>
           ) : (
@@ -364,7 +383,7 @@ function Modal({ listing, onClose, onReserve, reservations, user, openAuth }) {
               </div>
 
               {isBlocked && (
-                <p className="text-rose-600 text-xs font-medium mb-3 bg-rose-50 rounded-lg px-3 py-2">
+                <p className="text-rose-600 text-xs font-medium mb-3 bg-rose-50 dark:bg-rose-950/40 rounded-lg px-3 py-2">
                   ⚠️ Estas fechas no están disponibles porque ya se encuentra reservado.
                 </p>
               )}
@@ -742,7 +761,7 @@ export default function App() {
         address: i.address
       }))
 
-      // Fusiona evitando duplicados por ID
+      // Merge avoiding duplicates by ID
       const existingIds = new Set(dbListings.map(item => item.id))
       const uniqueInitial = initialListings.filter(item => !existingIds.has(item.id))
       
@@ -776,13 +795,14 @@ export default function App() {
     }
   }
 
-  // Cargar Reservaciones
+  // Cargar Reservaciones de la BD
   const [reservations, setReservations] = useState([])
+  async function fetchRes() {
+    const { data, error } = await getReservations()
+    if (!error && data) setReservations(data)
+  }
+
   useEffect(() => {
-    async function fetchRes() {
-      const { data, error } = await getReservations()
-      if (!error && data) setReservations(data)
-    }
     fetchRes()
   }, [])
 
@@ -799,6 +819,9 @@ export default function App() {
   }
 
   const savedListings = listings.filter(l => savedIds.includes(l.id))
+
+  // User's own reservations
+  const userReservations = reservations.filter(r => user && r.guest_id === user.id)
 
   const handleOpenPublish = () => {
     if (!user) {
@@ -846,8 +869,8 @@ export default function App() {
               <h1 className="text-4xl md:text-5xl font-black mb-4">Descubre espacios únicos en todo México</h1>
               <div className="flex gap-3 justify-center flex-wrap mt-6">
                 <button onClick={() => setPage("explore")} className="bg-rose-500 hover:bg-rose-600 text-white px-8 py-3 rounded-full font-bold">Comenzar a explorar</button>
-                <button onClick={handleOpenPublish} className="bg-white/10 border border-white/20 text-white px-8 py-3 rounded-full font-bold">
-                  {user ? "🏡 Modo Anfitrión" : "Publicar mi espacio"}
+                <button onClick={() => user ? setPage("reservations") : setAuthOpen(true)} className="bg-white/10 border border-white/20 text-white px-8 py-3 rounded-full font-bold">
+                  Mis Reservaciones
                 </button>
               </div>
             </div>
@@ -861,6 +884,49 @@ export default function App() {
               ))}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* RUTA: MIS RESERVACIONES */}
+      {page === "reservations" && (
+        <div className="max-w-7xl mx-auto px-6 py-10">
+          <h2 className="text-3xl font-black mb-2">Tus Reservaciones</h2>
+          <p className="text-sm text-gray-500 mb-8">Consulta tus próximas estancias y fechas confirmadas.</p>
+
+          {!user ? (
+            <div className="text-center py-20 text-gray-400">
+              <p className="text-base font-semibold">Inicia sesión para ver tus reservaciones.</p>
+              <button onClick={() => setAuthOpen(true)} className="mt-4 bg-rose-500 text-white px-6 py-2 rounded-full font-bold text-xs">
+                Iniciar sesión
+              </button>
+            </div>
+          ) : userReservations.length === 0 ? (
+            <div className="text-center py-20 text-gray-400">
+              <p className="text-base font-semibold">Aún no tienes reservaciones registradas.</p>
+              <button onClick={() => setPage("explore")} className="mt-4 bg-rose-500 text-white px-6 py-2 rounded-full font-bold text-xs">
+                Explorar alojamientos
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {userReservations.map(r => {
+                const listingInfo = listings.find(l => l.id === r.listing_id)
+                return (
+                  <div key={r.id} className="border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 rounded-2xl p-5 flex gap-4 items-center shadow-sm">
+                    <img src={listingInfo?.img || "https://images.unsplash.com/photo-1587061949409-02df41d5e562?w=400&q=80"} alt="Alojamiento" className="w-24 h-24 rounded-xl object-cover shrink-0"/>
+                    <div className="flex-1">
+                      <h3 className="font-bold text-base text-gray-900 dark:text-gray-100">{listingInfo?.title || 'Alojamiento en StayMX'}</h3>
+                      <p className="text-xs text-rose-500 font-semibold mt-1">Del {r.check_in} al {r.check_out}</p>
+                      <p className="text-xs text-gray-400 mt-1">Huéspedes: {r.guests_count || 1} · Total: ${r.total_price ? Number(r.total_price).toLocaleString() : '0'} MXN</p>
+                      <span className="inline-block mt-2 px-2.5 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400">
+                        Confirmada
+                      </span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
       )}
 
@@ -917,7 +983,7 @@ export default function App() {
       <Modal 
         listing={selectedListing} 
         onClose={() => setSelectedListing(null)} 
-        onReserve={r => setReservations(p => [r, ...p])} 
+        onReserve={() => { fetchRes(); fetchListings(); }} 
         reservations={reservations} 
         user={user} 
         openAuth={() => { setSelectedListing(null); setAuthOpen(true); }} 
