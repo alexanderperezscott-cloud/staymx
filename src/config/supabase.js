@@ -7,6 +7,7 @@ const FALLBACK_URL = "https://hvrehrrebhgoqjibdszs.supabase.co"
 // 🔑 Obtención limpia de las variables de entorno
 const rawUrl = import.meta.env.VITE_SUPABASE_URL || import.meta.env.VITE_PUBLIC_SUPABASE_URL
 
+// Valida que la URL exista y comience obligatoriamente con http:// o https://
 const supabaseUrl = (typeof rawUrl === 'string' && rawUrl.startsWith('http')) 
   ? rawUrl 
   : FALLBACK_URL
@@ -18,10 +19,10 @@ const supabaseAnonKey =
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
-// Variable global para mantener la referencia a la ventana flotante
-let googlePopupRef = null
+// ==========================================
+// 📥 ALOJAMIENTOS (LISTINGS)
+// ==========================================
 
-// 📥 Cargar alojamientos
 export async function getListings() {
   const { data, error } = await supabase
     .from('listings')
@@ -30,7 +31,6 @@ export async function getListings() {
   return { data, error }
 }
 
-// 📤 Crear alojamiento
 export async function createListing(newListing) {
   const { data: { session } } = await supabase.auth.getSession()
   
@@ -62,7 +62,20 @@ export async function createListing(newListing) {
   return { data, error }
 }
 
-// 🗓️ Reservaciones
+export async function deleteListing(listingId) {
+  const { data, error } = await supabase
+    .from('listings')
+    .delete()
+    .eq('id', listingId)
+    .select()
+
+  return { data, error }
+}
+
+// ==========================================
+// 🗓️ RESERVACIONES Y PAGO (FLUKO AIRBNB)
+// ==========================================
+
 export async function getReservations() {
   const { data, error } = await supabase
     .from('reservations')
@@ -70,6 +83,17 @@ export async function getReservations() {
   return { data, error }
 }
 
+// Obtiene los rangos de fechas de reservaciones confirmadas para un alojamiento
+export async function getListingBookedDates(listingId) {
+  const { data, error } = await supabase
+    .from('reservations')
+    .select('check_in, check_out')
+    .eq('listing_id', listingId)
+    .neq('status', 'cancelled') // Ignora reservaciones canceladas
+  return { data, error }
+}
+
+// Crear reservación original (mantenida por compatibilidad)
 export async function createReservation(reservation) {
   const { data: { session } } = await supabase.auth.getSession()
 
@@ -94,7 +118,59 @@ export async function createReservation(reservation) {
   return { data, error }
 }
 
-// 👑 Perfil y Admin
+// Crear reservación verificando disponibilidad de fechas y método de pago
+export async function createReservationWithPayment(reservation) {
+  const { data: { session } } = await supabase.auth.getSession()
+
+  if (!session?.user) {
+    return { data: null, error: { message: "Debes iniciar sesión para realizar una reservación." } }
+  }
+
+  // 1. Verificar si las fechas chocan con reservaciones existentes
+  const { data: existingBookings } = await getListingBookedDates(reservation.listingId)
+  
+  if (existingBookings && existingBookings.length > 0) {
+    const newIn = new Date(reservation.checkIn).getTime()
+    const newOut = new Date(reservation.checkOut).getTime()
+
+    const isOverlap = existingBookings.some(b => {
+      const existIn = new Date(b.check_in).getTime()
+      const existOut = new Date(b.check_out).getTime()
+      return (newIn < existOut && newOut > existIn)
+    })
+
+    if (isOverlap) {
+      return { 
+        data: null, 
+        error: { message: "Las fechas seleccionadas ya han sido reservadas por otro usuario. Por favor elige otro rango de días." } 
+      }
+    }
+  }
+
+  // 2. Insertar reservación con estatus confirmado y método de pago
+  const { data, error } = await supabase
+    .from('reservations')
+    .insert([
+      {
+        listing_id: reservation.listingId,
+        guest_id: session.user.id,
+        check_in: reservation.checkIn,
+        check_out: reservation.checkOut,
+        guests_count: reservation.guests,
+        total_price: reservation.total,
+        payment_method: reservation.paymentMethod || 'card', // 'card' | 'paypal'
+        status: 'confirmed'
+      }
+    ])
+    .select()
+
+  return { data, error }
+}
+
+// ==========================================
+// 👑 PERFIL Y FOTO DE PERFIL (AVATAR)
+// ==========================================
+
 export async function getUserProfile(userId) {
   if (!userId) return null
   const { data, error } = await supabase
@@ -105,17 +181,40 @@ export async function getUserProfile(userId) {
   return { data, error }
 }
 
-export async function deleteListing(listingId) {
-  const { data, error } = await supabase
-    .from('listings')
-    .delete()
-    .eq('id', listingId)
-    .select()
+// Subir o actualizar foto de perfil en Supabase Storage ('avatars')
+export async function uploadAvatar(file, userId) {
+  try {
+    const fileExt = file.name.split('.').pop()
+    const filePath = `${userId}/avatar.${fileExt}`
 
-  return { data, error }
+    // 1. Subir archivo al bucket 'avatars'
+    const { error: uploadError } = await supabase.storage
+      .from('avatars')
+      .upload(filePath, file, { upsert: true })
+
+    if (uploadError) throw uploadError
+
+    // 2. Obtener la URL pública del archivo
+    const { data } = supabase.storage.from('avatars').getPublicUrl(filePath)
+    const publicUrl = data.publicUrl
+
+    // 3. Actualizar avatar_url en la tabla 'profiles'
+    const { error: updateError } = await supabase
+      .from('profiles')
+      .update({ avatar_url: publicUrl })
+      .eq('id', userId)
+
+    if (updateError) throw updateError
+
+    return { publicUrl, error: null }
+  } catch (error) {
+    return { publicUrl: null, error }
+  }
 }
 
-// 🔐 --- FUNCIONES DE AUTENTICACIÓN ---
+// ==========================================
+// 🔐 FUNCIONES DE AUTENTICACIÓN
+// ==========================================
 
 export async function signUpUser(email, password, fullName) {
   const { data, error } = await supabase.auth.signUp({
@@ -140,46 +239,12 @@ export async function signUpWithEmail(email, password) {
   return { data, error }
 }
 
-// 🌐 Iniciar Sesión con Google (Ventana Emergente Flotante limpia)
 export async function loginWithGoogle() {
-  const redirectUrl = window.location.origin
-
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
-    options: {
-      redirectTo: redirectUrl,
-      skipBrowserRedirect: true,
-      queryParams: {
-        prompt: 'select_account',
-      },
-    },
+    options: { redirectTo: window.location.origin }
   })
-
-  if (error) return { data: null, error }
-
-  if (data?.url) {
-    const width = 500
-    const height = 600
-    const left = window.screenX + (window.outerWidth - width) / 2
-    const top = window.screenY + (window.outerHeight - height) / 2
-
-    googlePopupRef = window.open(
-      data.url,
-      'GoogleLoginPopup',
-      `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,status=yes`
-    )
-
-    if (googlePopupRef) googlePopupRef.focus()
-  }
-
-  return { data, error: null }
-}
-
-export function closeGooglePopup() {
-  if (googlePopupRef && !googlePopupRef.closed) {
-    googlePopupRef.close()
-    googlePopupRef = null
-  }
+  return { data, error }
 }
 
 export async function signOutUser() {
