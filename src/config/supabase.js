@@ -17,7 +17,7 @@ const supabaseAnonKey =
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 // ==========================================
-// 📥 ALOJAMIENTOS (LISTINGS)
+// 📥 ALOJAMIENTOS (LISTINGS) & MODO ANFITRIÓN
 // ==========================================
 
 export async function getListings() {
@@ -51,7 +51,10 @@ export async function createListing(newListing) {
         baths: newListing.baths || 1,
         description: newListing.description,
         amenities: newListing.amenities || [],
-        image_url: newListing.img
+        image_url: newListing.img,
+        phone: newListing.phone,           // <-- Agregado para validación de teléfono
+        latitude: newListing.latitude,     // <-- Agregado para Mapbox
+        longitude: newListing.longitude    // <-- Agregado para Mapbox
       }
     ])
     .select()

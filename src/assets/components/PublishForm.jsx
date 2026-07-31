@@ -1,7 +1,8 @@
-// src/assets/components/PublishForm.jsx
+// src/components/PublishForm.jsx (o la ruta donde lo tengas)
 import React, { useState } from 'react'
 import { createListing } from '../../config/supabase'
 import { mexicoLocations, tiposOpc, amenidadesOpc } from '../../data/initialData'
+import LocationPicker from './LocationPicker' // <-- IMPORTANTE: Importamos el mapa
 
 function Field({ label, error, children }) {
   return (
@@ -15,7 +16,7 @@ function Field({ label, error, children }) {
 
 const inputCls = "w-full border border-gray-200 dark:border-gray-800 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-rose-300 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors"
 
-export default function PublishForm({ onPublish, onCancel }) {
+export default function PublishForm({ onPublish, onCancel, userId }) {
   const [step, setStep]       = useState(1)
   const [images, setImages]   = useState([])
   const [imageUrlInput, setImageUrlInput] = useState('')
@@ -25,7 +26,9 @@ export default function PublishForm({ onPublish, onCancel }) {
   const [selectedState, setSelectedState] = useState("Campeche")
   const [form, setForm] = useState({
     title:"", type:"Casa", price:"", phone:"", guests:2, beds:1, baths:1,
-    description:"", address:"", city:"Campeche Centro", amenities:[]
+    description:"", address:"", city:"Campeche", amenities:[],
+    latitude: null,  // <-- NUEVO: Para el mapa
+    longitude: null  // <-- NUEVO: Para el mapa
   })
 
   const set = (k,v) => setForm(p => ({...p, [k]: v}))
@@ -61,9 +64,16 @@ export default function PublishForm({ onPublish, onCancel }) {
 
   const validateStep = () => {
     const e = {}
-    if (step===1 && (!form.title.trim() || !form.price || +form.price <= 0 || !form.phone.trim())) e.title = "Todos los campos con * son obligatorios"
-    if (step===2 && (!form.address.trim())) e.address = "Ingresa la dirección exacta"
-    if (step===3 && (images.length === 0 || !form.description.trim())) e.img = "Agrega al menos una foto y descripción"
+    if (step===1 && (!form.title.trim() || !form.price || +form.price <= 0 || form.phone.length !== 10)) {
+        e.title = "Completa todos los campos correctamente. El teléfono debe tener 10 dígitos."
+    }
+    // Añadimos validación para asegurar que marquen el mapa
+    if (step===2 && (!form.address.trim() || !form.latitude || !form.longitude)) {
+        e.address = "Ingresa la dirección exacta y mueve el pin rojo en el mapa para marcar la ubicación."
+    }
+    if (step===3 && (images.length === 0 || !form.description.trim())) {
+        e.img = "Agrega al menos una foto y descripción"
+    }
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -73,6 +83,7 @@ export default function PublishForm({ onPublish, onCancel }) {
     setLoading(true)
 
     const newListingData = {
+      host_id: userId, // <-- Vital para que no de error la política RLS de Supabase
       title: form.title, 
       type: form.type, 
       price: +form.price, 
@@ -83,6 +94,8 @@ export default function PublishForm({ onPublish, onCancel }) {
       address: form.address, 
       city: form.city,
       state: selectedState, 
+      latitude: form.latitude,   // <-- Guardamos latitud real
+      longitude: form.longitude, // <-- Guardamos longitud real
       description: form.description, 
       amenities: form.amenities, 
       img: images[0],
@@ -115,6 +128,7 @@ export default function PublishForm({ onPublish, onCancel }) {
         <span className="text-xs font-bold bg-rose-100 text-rose-600 px-3 py-1 rounded-full">Paso {step} de 3</span>
       </div>
 
+      {/* ---------------- PASO 1 ---------------- */}
       {step===1 && (
         <div className="flex flex-col gap-5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-6 rounded-3xl shadow-sm">
           <h2 className="font-bold text-lg text-gray-800 dark:text-gray-200">1. Datos principales del alojamiento</h2>
@@ -135,14 +149,26 @@ export default function PublishForm({ onPublish, onCancel }) {
             </Field>
           </div>
 
+          {/* TELEFONO CON VALIDACIÓN ESTRICTA */}
           <Field label="Teléfono de contacto del anfitrión *">
-            <input 
-              type="tel" 
-              value={form.phone} 
-              onChange={e => set("phone", e.target.value)} 
-              placeholder="Ej. +52 981 123 4567" 
-              className={inputCls}
-            />
+            <div className="relative">
+              <span className="absolute left-3 top-2.5 text-gray-400">+52</span>
+              <input 
+                type="tel" 
+                maxLength="10"
+                pattern="[0-9]{10}"
+                value={form.phone} 
+                onChange={e => {
+                  // Filtra para que el usuario SOLO pueda escribir números
+                  const soloNumeros = e.target.value.replace(/[^0-9]/g, '');
+                  set("phone", soloNumeros);
+                }} 
+                onInvalid={e => e.target.setCustomValidity('Ingresa un número válido de 10 dígitos')}
+                onInput={e => e.target.setCustomValidity('')}
+                placeholder="Ej. 9811234567" 
+                className={`${inputCls} pl-10`} // Añadimos padding left para el +52
+              />
+            </div>
           </Field>
 
           <div className="grid grid-cols-3 gap-4 border-t border-gray-100 dark:border-gray-800 pt-4">
@@ -161,6 +187,7 @@ export default function PublishForm({ onPublish, onCancel }) {
         </div>
       )}
 
+      {/* ---------------- PASO 2 ---------------- */}
       {step===2 && (
         <div className="flex flex-col gap-5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-6 rounded-3xl shadow-sm">
           <h2 className="font-bold text-lg text-gray-800 dark:text-gray-200">2. Ubicación y Amenidades</h2>
@@ -171,7 +198,8 @@ export default function PublishForm({ onPublish, onCancel }) {
                 value={selectedState} 
                 onChange={e => {
                   setSelectedState(e.target.value)
-                  set("city", mexicoLocations[e.target.value][0])
+                  // Autoselecciona la primera ciudad de la lista de ese estado
+                  set("city", mexicoLocations[e.target.value][0]) 
                 }} 
                 className={inputCls}
               >
@@ -190,7 +218,10 @@ export default function PublishForm({ onPublish, onCancel }) {
             <input value={form.address} onChange={e=>set("address",e.target.value)} placeholder="Ej. Calle 12 #45 por 59 y 61, Col. Centro" className={inputCls}/>
           </Field>
 
-          <div className="border-t border-gray-100 dark:border-gray-800 pt-4">
+          {/* EL MAPA DE MAPBOX */}
+          <LocationPicker formData={form} setFormData={setForm} />
+
+          <div className="border-t border-gray-100 dark:border-gray-800 pt-4 mt-2">
             <label className="text-xs font-semibold text-gray-600 dark:text-gray-400 block mb-2">¿Qué servicios ofrece tu alojamiento?</label>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {amenidadesOpc.map(a => {
@@ -213,6 +244,7 @@ export default function PublishForm({ onPublish, onCancel }) {
         </div>
       )}
 
+      {/* ---------------- PASO 3 ---------------- */}
       {step===3 && (
         <div className="flex flex-col gap-5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-6 rounded-3xl shadow-sm">
           <h2 className="font-bold text-lg text-gray-800 dark:text-gray-200">3. Galería de Fotos y Descripción</h2>
@@ -269,6 +301,7 @@ export default function PublishForm({ onPublish, onCancel }) {
         </div>
       )}
 
+      {/* ---------------- BOTONES DE NAVEGACIÓN ---------------- */}
       <div className="flex justify-between mt-8">
         {step > 1 ? (
           <button onClick={() => setStep(s => s - 1)} className="px-6 py-2.5 border border-gray-300 dark:border-gray-700 rounded-xl text-sm font-bold">
@@ -277,11 +310,11 @@ export default function PublishForm({ onPublish, onCancel }) {
         ) : <div/>}
 
         {step < 3 ? (
-          <button onClick={() => { if (validateStep()) setStep(s => s + 1) }} className="bg-rose-500 hover:bg-rose-600 text-white px-8 py-2.5 rounded-xl text-sm font-bold shadow-md">
+          <button onClick={() => { if (validateStep()) setStep(s => s + 1) }} className="bg-rose-500 hover:bg-rose-600 text-white px-8 py-2.5 rounded-xl text-sm font-bold shadow-md transition-colors">
             Siguiente
           </button>
         ) : (
-          <button onClick={handleSubmit} disabled={loading} className="bg-rose-500 hover:bg-rose-600 text-white px-8 py-2.5 rounded-xl text-sm font-bold shadow-md">
+          <button onClick={handleSubmit} disabled={loading} className="bg-rose-500 hover:bg-rose-600 disabled:bg-rose-400 text-white px-8 py-2.5 rounded-xl text-sm font-bold shadow-md transition-colors">
             {loading ? "Publicando..." : "Publicar propiedad 🏡"}
           </button>
         )}
