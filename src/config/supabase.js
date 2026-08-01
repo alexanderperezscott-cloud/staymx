@@ -52,9 +52,9 @@ export async function createListing(newListing) {
         description: newListing.description,
         amenities: newListing.amenities || [],
         image_url: newListing.img,
-        phone: newListing.phone,           // <-- Agregado para validación de teléfono
-        latitude: newListing.latitude,     // <-- Agregado para Mapbox
-        longitude: newListing.longitude    // <-- Agregado para Mapbox
+        phone: newListing.phone,          // <-- Agregado para validación de teléfono
+        latitude: newListing.latitude,    // <-- Agregado para Mapbox
+        longitude: newListing.longitude   // <-- Agregado para Mapbox
       }
     ])
     .select()
@@ -272,4 +272,134 @@ export async function logout() {
 export async function getCurrentUser() {
   const { data: { session } } = await supabase.auth.getSession()
   return session?.user ?? null
+}
+
+// ==========================================
+// ❤️ FAVORITOS (WISHLIST) - NUEVO
+// ==========================================
+
+export async function getUserFavorites() {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session?.user) return { data: [] }
+
+  const { data, error } = await supabase
+    .from('favorites')
+    .select('listing_id')
+    .eq('user_id', session.user.id)
+  
+  return { data, error }
+}
+
+export async function toggleFavorite(listingId, isFavorite) {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session?.user) throw new Error("Debes iniciar sesión para guardar en favoritos")
+
+  if (isFavorite) {
+    const { error } = await supabase
+      .from('favorites')
+      .delete()
+      .match({ user_id: session.user.id, listing_id: listingId })
+    if (error) throw error
+  } else {
+    const { error } = await supabase
+      .from('favorites')
+      .insert([{ user_id: session.user.id, listing_id: listingId }])
+    if (error) throw error
+  }
+}
+
+// ==========================================
+// 💬 MENSAJES ENTRE HUÉSPED Y ANFITRIÓN
+// ==========================================
+
+export async function sendMessage(reservationId, receiverId, content) {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session?.user) throw new Error("Debes iniciar sesión para enviar mensajes.")
+
+  const { data, error } = await supabase
+    .from('messages')
+    .insert([{
+      reservation_id: reservationId,
+      sender_id: session.user.id,
+      receiver_id: receiverId,
+      content: content
+    }])
+    .select()
+
+  return { data, error }
+}
+
+export async function getMessages(reservationId) {
+  const { data, error } = await supabase
+    .from('messages')
+    .select('*')
+    .eq('reservation_id', reservationId)
+    .order('created_at', { ascending: true }) // Orden cronológico
+  
+  return { data, error }
+}
+
+// ==========================================
+// ⭐ RESEÑAS Y CALIFICACIONES (REVIEWS)
+// ==========================================
+
+// Obtener todas las reseñas de una propiedad (incluyendo el nombre del autor)
+export async function getReviews(listingId) {
+  const { data, error } = await supabase
+    .from('reviews')
+    .select(`
+      *,
+      profiles:user_id (full_name, avatar_url)
+    `)
+    .eq('listing_id', listingId)
+    .order('created_at', { ascending: false })
+  
+  return { data, error }
+}
+
+// Validar si el usuario ya se hospedó y no ha comentado aún
+export async function checkReviewEligibility(listingId) {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session?.user) return false
+
+  // 1. Verificamos si tiene una reservación confirmada que ya terminó
+  const today = new Date().toISOString().split('T')[0]
+  const { data: pastReservations } = await supabase
+    .from('reservations')
+    .select('id')
+    .eq('listing_id', listingId)
+    .eq('guest_id', session.user.id)
+    .eq('status', 'confirmed')
+    .lt('check_out', today) // check_out debe ser menor a hoy
+    .limit(1)
+
+  if (!pastReservations || pastReservations.length === 0) return false
+
+  // 2. Verificamos que no haya dejado una reseña antes
+  const { data: existingReview } = await supabase
+    .from('reviews')
+    .select('id')
+    .eq('listing_id', listingId)
+    .eq('user_id', session.user.id)
+    .maybeSingle()
+
+  return !existingReview // Es elegible solo si NO existe una reseña previa
+}
+
+// Subir la reseña a la base de datos
+export async function submitReview(listingId, rating, comment) {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session?.user) throw new Error("Inicia sesión para calificar.")
+
+  const { data, error } = await supabase
+    .from('reviews')
+    .insert([{ 
+      listing_id: listingId, 
+      user_id: session.user.id, 
+      rating, 
+      comment 
+    }])
+    .select()
+
+  return { data, error }
 }

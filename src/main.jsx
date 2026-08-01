@@ -1,10 +1,12 @@
-import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
+import React from 'react'
+import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
 import './index.css'
+import { Toaster } from 'react-hot-toast' // <-- 1. Agrega esta importación
 
-createRoot(document.getElementById('root')).render(
-  <StrictMode>
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
     <App />
-  </StrictMode>
+    <Toaster position="bottom-center" /> {/* <-- 2. Agrega el componente aquí */}
+  </React.StrictMode>,
 )

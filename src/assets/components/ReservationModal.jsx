@@ -2,6 +2,7 @@
 import React, { useState } from 'react'
 import { createReservationWithPayment } from '../../config/supabase'
 import { addDays, diffDays, today } from '../../data/initialData'
+import ReviewsSection from './ReviewsSection' 
 
 export default function ReservationModal({ listing, onClose, onReserve, reservations, user, openAuth }) {
   if (!listing) return null
@@ -187,6 +188,10 @@ export default function ReservationModal({ listing, onClose, onReserve, reservat
                   {listing.description || 'Sin descripción disponible.'}
                 </p>
               </div>
+
+              {/* AQUI SE INTEGRA LA SECCIÓN DE RESEÑAS */}
+              <ReviewsSection listingId={listing.id} />
+
             </div>
 
             {/* Right Column: Reservation Widget */}
@@ -323,7 +328,7 @@ export default function ReservationModal({ listing, onClose, onReserve, reservat
       ) : (
 
         /* ================================================================= */
-        /* 📍 VIEW 2: CONFIRM AND PAY                                         */
+        /* 📍 VIEW 2: CONFIRM AND PAY                                        */
         /* ================================================================= */
         <div className="max-w-5xl mx-auto px-6 py-10">
           <h1 className="text-3xl font-black text-gray-900 dark:text-gray-50 mb-8 flex items-center gap-3">
