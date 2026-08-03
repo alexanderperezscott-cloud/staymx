@@ -4,6 +4,18 @@ import { createReservationWithPayment } from '../../config/supabase'
 import { addDays, diffDays, today } from '../../data/initialData'
 import ReviewsSection from './ReviewsSection' 
 
+// MEJORA ARQUITECTÓNICA: Custom Hook para separar la lógica financiera de la UI
+function useReservationPricing(checkIn, checkOut, pricePerNight, rateType) {
+  const nights = Math.max(1, diffDays(checkIn, checkOut));
+  const basePrice = pricePerNight * nights;
+  const discount = Math.round(basePrice * 0.07);
+  const taxes = Math.round((basePrice - discount) * 0.16);
+  const rateMultiplier = rateType === 'refundable' ? 1.10 : 1.0;
+  const total = Math.round((basePrice - discount + taxes) * rateMultiplier);
+  
+  return { nights, basePrice, discount, taxes, total };
+}
+
 export default function ReservationModal({ listing, onClose, onReserve, reservations, user, openAuth }) {
   if (!listing) return null
 
@@ -32,14 +44,9 @@ export default function ReservationModal({ listing, onClose, onReserve, reservat
     return checkIn < resOut && checkOut > resIn
   })
 
-  // Calculations
-  const nights = Math.max(1, diffDays(checkIn, checkOut))
-  const pricePerNight = Number(listing.price || listing.price_per_night || 0)
-  const basePrice = pricePerNight * nights
-  const discount = Math.round(basePrice * 0.07)
-  const taxes = Math.round((basePrice - discount) * 0.16)
-  const rateMultiplier = rateType === 'refundable' ? 1.10 : 1.0
-  const total = Math.round((basePrice - discount + taxes) * rateMultiplier)
+  // Usamos el nuevo Custom Hook para los cálculos
+  const pricePerNight = Number(listing.price || listing.price_per_night || 0);
+  const { nights, basePrice, discount, taxes, total } = useReservationPricing(checkIn, checkOut, pricePerNight, rateType);
 
   // STRICT REAL IMAGES (No random stock photo fallbacks)
   const images = Array.isArray(listing.images) && listing.images.length > 0
@@ -189,7 +196,6 @@ export default function ReservationModal({ listing, onClose, onReserve, reservat
                 </p>
               </div>
 
-              {/* AQUI SE INTEGRA LA SECCIÓN DE RESEÑAS */}
               <ReviewsSection listingId={listing.id} />
 
             </div>
