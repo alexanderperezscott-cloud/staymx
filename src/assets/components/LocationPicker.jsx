@@ -2,18 +2,23 @@ import { useEffect, useRef } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
-mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN;
+// Asignamos el token (Agregamos || '' para evitar crashes si el .env no carga a tiempo)
+mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN || '';
 
 export default function LocationPicker({ formData, setFormData }) {
   const mapContainer = useRef(null);
+  const map = useRef(null); // <-- Faltaba esta referencia clave
   const markerRef = useRef(null);
 
   useEffect(() => {
+    // Si el mapa ya existe, no lo volvemos a cargar
+    if (map.current) return;
+
     // Coordenadas por defecto (Centro de México)
     const initialLng = formData.longitude || -99.1332;
     const initialLat = formData.latitude || 19.4326;
 
-    const map = new mapboxgl.Map({
+    map.current = new mapboxgl.Map({
       container: mapContainer.current,
       style: 'mapbox://styles/mapbox/dark-v11', // Estilo oscuro
       center: [initialLng, initialLat],
@@ -23,7 +28,7 @@ export default function LocationPicker({ formData, setFormData }) {
     // Marcador arrastrable
     markerRef.current = new mapboxgl.Marker({ draggable: true, color: '#FF385C' })
       .setLngLat([initialLng, initialLat])
-      .addTo(map);
+      .addTo(map.current);
 
     // Actualizar coordenadas al soltar el pin
     markerRef.current.on('dragend', () => {
@@ -35,9 +40,7 @@ export default function LocationPicker({ formData, setFormData }) {
       }));
     });
 
-    // Limpieza al desmontar
-    return () => map.remove();
-  }, [formData.latitude, formData.longitude, setFormData]);
+  }, []); // <-- Dependencias vacías para evitar que el mapa parpadee y colapse
 
   return (
     <div className="mt-4">

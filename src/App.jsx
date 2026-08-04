@@ -256,11 +256,13 @@ export default function App() {
         <AdminDashboard listings={listings} onDelete={handleDeleteListing} />
       )}
 
-      {/* PUBLISH ROUTE (MODO ANFITRIÓN CON INE) */}
+      {/* PUBLISH ROUTE (MODO ANFITRIÓN CON INE) - CORREGIDO AQUÍ */}
       {page === "publish" && (
         <HostModeWrapper 
           onPublish={() => { fetchListings(); setPage("explore") }} 
           onCancel={() => setPage("home")} 
+          userId={user?.id}
+          user={user}
         />
       )}
 
@@ -343,7 +345,7 @@ export default function App() {
                         onClick={() => setChatReservation({ reservation: r, listingInfo })}
                         className="mt-2 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
                       >
-                         Enviar Mensaje
+                        💬 Enviar Mensaje
                       </button>
 
                       <div className="flex items-center justify-between mt-3">
@@ -393,7 +395,7 @@ export default function App() {
               
               {/* Búsqueda por Texto (Ciudad / Título) */}
               <div className="relative w-full lg:w-1/3">
-                <span className="absolute left-4 top-3 text-lg"></span>
+                <span className="absolute left-4 top-3 text-lg">🔍</span>
                 <input
                   type="text"
                   placeholder="Ciudad, lugar o nombre..."
@@ -439,7 +441,7 @@ export default function App() {
                 onClick={handleSurpriseMe}
                 className="w-full lg:w-auto shrink-0 bg-rose-500 hover:bg-rose-600 text-white font-black text-sm px-6 py-3 rounded-2xl shadow-md transition-all flex items-center justify-center gap-2"
               >
-                 ¡Sorpréndeme!
+                🎲 ¡Sorpréndeme!
               </button>
 
             </div>
@@ -462,7 +464,7 @@ export default function App() {
               ))
             ) : (
               <div className="col-span-full py-24 text-center bg-gray-50 dark:bg-gray-900/50 rounded-3xl border border-gray-100 dark:border-gray-800">
-                <span className="text-6xl mb-4 block"></span>
+                <span className="text-6xl mb-4 block">🏜️</span>
                 <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-2">No encontramos resultados</h2>
                 <p className="text-gray-500 dark:text-gray-400 mb-6">Prueba aumentando el precio máximo o quitando los filtros.</p>
                 <button 
