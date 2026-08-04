@@ -100,6 +100,7 @@ export default function App() {
   const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem("staymx_dark_mode") === "true")
   useEffect(() => {
     document.documentElement.classList.toggle("dark", isDarkMode)
+    document.body.style.backgroundColor = isDarkMode ? "#030712" : "#ffffff"
     localStorage.setItem("staymx_dark_mode", isDarkMode)
   }, [isDarkMode])
 
@@ -363,11 +364,11 @@ export default function App() {
                           onClick={() => setChatReservation({ reservation: r, listingInfo })}
                           className="px-4 py-2 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-xl text-xs font-bold hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition-colors flex items-center gap-2"
                         >
-                          💬 Mensaje al anfitrión
+                           Mensaje al anfitrión
                         </button>
                         
                         <a href={`tel:${listingInfo?.phone}`} className="px-4 py-2 bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded-xl text-xs font-bold hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                          📞 Llamar
+                           Llamar
                         </a>
                       </div>
 

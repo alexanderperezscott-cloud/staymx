@@ -1,4 +1,3 @@
-// src/assets/components/LoginModal.jsx
 import React, { useState, useEffect } from 'react'
 import { 
   supabase, 
@@ -15,6 +14,9 @@ export default function LoginModal({ isOpen, onClose }) {
   const [errorMessage, setErrorMessage] = useState('')
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
+  
+  // NUEVO ESTADO: Control de Términos y Condiciones
+  const [acceptedTerms, setAcceptedTerms] = useState(false)
 
   useEffect(() => {
     if (!isOpen) return
@@ -37,6 +39,13 @@ export default function LoginModal({ isOpen, onClose }) {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setErrorMessage('')
+
+    // NUEVA VALIDACIÓN: Solo para el registro
+    if (isSignUp && !acceptedTerms) {
+      setErrorMessage('Debes aceptar los términos y condiciones para continuar.')
+      return
+    }
+
     setLoading(true)
 
     if (isSignUp) {
@@ -146,10 +155,26 @@ export default function LoginModal({ isOpen, onClose }) {
             />
           </div>
 
+          {/* NUEVO: CHECKBOX DE TÉRMINOS SOLO VISIBLE SI ES REGISTRO */}
+          {isSignUp && (
+            <div className="flex items-start gap-3 p-3 bg-slate-950/50 border border-slate-800 rounded-xl">
+              <input 
+                type="checkbox" 
+                id="terms" 
+                checked={acceptedTerms}
+                onChange={(e) => setAcceptedTerms(e.target.checked)}
+                className="mt-0.5 accent-rose-500 w-4 h-4 rounded cursor-pointer shrink-0 border-slate-700 bg-slate-900"
+              />
+              <label htmlFor="terms" className="text-[11px] text-slate-400 leading-relaxed cursor-pointer select-none">
+                Confirmo que soy mayor de 18 años y acepto los <a href="#" className="text-rose-400 font-medium hover:underline">Términos de Servicio</a> y la <a href="#" className="text-rose-400 font-medium hover:underline">Política de Privacidad</a> de StayMX para el tratamiento de datos.
+              </label>
+            </div>
+          )}
+
           <button
             type="submit"
-            disabled={loading}
-            className="w-full bg-rose-500 hover:bg-rose-600 text-white font-semibold py-2.5 rounded-xl transition duration-200 text-sm disabled:opacity-50 active:scale-[0.99]"
+            disabled={loading || (isSignUp && !acceptedTerms)}
+            className="w-full bg-rose-500 hover:bg-rose-600 text-white font-semibold py-2.5 rounded-xl transition duration-200 text-sm disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.99]"
           >
             {loading ? 'Procesando...' : isSignUp ? 'Registrarse' : 'Entrar'}
           </button>
@@ -158,7 +183,11 @@ export default function LoginModal({ isOpen, onClose }) {
         <p className="text-xs text-center text-slate-400">
           {isSignUp ? '¿Ya tienes cuenta?' : '¿No tienes cuenta aun?'}{' '}
           <button
-            onClick={() => setIsSignUp(!isSignUp)}
+            onClick={() => {
+              setIsSignUp(!isSignUp)
+              setAcceptedTerms(false) // Limpiar el checkbox al cambiar
+              setErrorMessage('')
+            }}
             className="text-rose-400 hover:underline font-medium"
           >
             {isSignUp ? 'Inicia Sesión' : 'Regístrate aquí'}

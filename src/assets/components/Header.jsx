@@ -59,7 +59,7 @@ export default function Header({
               onClick={onOpenPublish} 
               className={`text-rose-600 dark:text-rose-400 font-bold px-3 py-1.5 rounded-full bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 hover:bg-rose-100 transition-all ${page === "publish" ? "ring-2 ring-rose-400" : ""}`}
             >
-              🏡 Modo Anfitrión
+               Modo Anfitrión
             </button>
           )}
 
@@ -69,7 +69,7 @@ export default function Header({
               onClick={() => setPage("admin")} 
               className={`text-amber-600 dark:text-amber-400 font-bold px-3 py-1.5 rounded-full bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 hover:bg-amber-100 transition-all ${page === "admin" ? "ring-2 ring-amber-400" : ""}`}
             >
-              🛡️ Dashboard Admin
+               Dashboard Admin
             </button>
           )}
         </nav>
@@ -117,7 +117,7 @@ export default function Header({
                 className="text-xs font-semibold text-gray-500 dark:text-gray-400 hover:text-rose-500 transition-colors"
                 title="Cerrar Sesión"
               >
-                Salir 🚪
+                Cerrar Sesión
               </button>
             </div>
           )}
