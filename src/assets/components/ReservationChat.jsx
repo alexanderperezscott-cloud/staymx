@@ -7,24 +7,24 @@ export default function ReservationChat({ isOpen, onClose, reservation, listingI
   const [newMessage, setNewMessage] = useState('');
   const messagesEndRef = useRef(null);
 
-  // Detectar el rol: Si tu ID coincide con el del dueño de la propiedad, eres el Anfitrión.
+  // 1. Identificar roles (Crucial para el esquema de Supabase)
   const isHost = currentUser?.id === listingInfo?.host_id;
   const title = isHost ? 'Chat con el Huésped' : 'Chat con el Anfitrión';
+  const receiverId = isHost ? reservation?.guest_id : listingInfo?.host_id;
 
-  // Función para hacer scroll automático hacia el último mensaje
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  // Hacer scroll cada vez que los mensajes cambian o se abre el modal
   useEffect(() => {
-    scrollToBottom();
+    if (isOpen) {
+      setTimeout(scrollToBottom, 100);
+    }
   }, [messages, isOpen]);
 
   useEffect(() => {
     if (!isOpen || !reservation) return;
 
-    // 1. Cargar el historial de mensajes
     const fetchMessages = async () => {
       const { data, error } = await supabase
         .from('messages')
@@ -39,7 +39,6 @@ export default function ReservationChat({ isOpen, onClose, reservation, listingI
 
     fetchMessages();
 
-    // 2. Escuchar nuevos mensajes en TIEMPO REAL
     const channel = supabase
       .channel(`chat_${reservation.id}`)
       .on(
@@ -51,13 +50,12 @@ export default function ReservationChat({ isOpen, onClose, reservation, listingI
           filter: `reservation_id=eq.${reservation.id}`,
         },
         (payload) => {
-          // Agregar el nuevo mensaje a la lista en vivo
           setMessages((prev) => [...prev, payload.new]);
+          setTimeout(scrollToBottom, 50);
         }
       )
       .subscribe();
 
-    // 3. Limpiar la información al cerrar el modal
     return () => {
       supabase.removeChannel(channel);
       setMessages([]);
@@ -70,13 +68,13 @@ export default function ReservationChat({ isOpen, onClose, reservation, listingI
     if (!newMessage.trim()) return;
 
     const textToSend = newMessage.trim();
-    // Limpiar el input inmediatamente para dar sensación de rapidez
-    setNewMessage(''); 
+    setNewMessage(''); // Limpia la caja inmediatamente
 
     const { error } = await supabase.from('messages').insert([
       {
         reservation_id: reservation.id,
         sender_id: currentUser.id,
+        receiver_id: receiverId, // AÑADIDO: Basado en tu esquema de Supabase
         content: textToSend,
       }
     ]);
@@ -90,10 +88,10 @@ export default function ReservationChat({ isOpen, onClose, reservation, listingI
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+    // AÑADIDO: z-[60] para asegurar que esté por encima del panel de Anfitrión
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div className="bg-white dark:bg-[#111827] w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col h-[600px] max-h-[90vh] border border-gray-200 dark:border-gray-800 relative">
         
-        {/* Header */}
         <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-white dark:bg-[#111827] z-10">
           <div>
             <h3 className="font-black text-lg text-gray-900 dark:text-white">{title}</h3>
@@ -107,7 +105,6 @@ export default function ReservationChat({ isOpen, onClose, reservation, listingI
           </button>
         </div>
 
-        {/* Chat Messages */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 dark:bg-[#0B0F19]">
           {messages.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-gray-400 dark:text-gray-500 opacity-70">
@@ -130,11 +127,9 @@ export default function ReservationChat({ isOpen, onClose, reservation, listingI
               );
             })
           )}
-          {/* Elemento invisible para forzar el auto-scroll */}
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Input Form */}
         <div className="p-4 bg-white dark:bg-[#111827] border-t border-gray-100 dark:border-gray-800">
           <form onSubmit={handleSendMessage} className="flex gap-2 relative">
             <input
@@ -155,7 +150,6 @@ export default function ReservationChat({ isOpen, onClose, reservation, listingI
             </button>
           </form>
         </div>
-
       </div>
     </div>
   );

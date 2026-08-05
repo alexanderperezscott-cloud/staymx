@@ -276,7 +276,8 @@ export default function ReservationModal({ listing, onClose, onReserve, reservat
                 </div>
 
                 {/* CALENDARIOS NUEVOS */}
-                <div className="border border-gray-300 dark:border-gray-700 rounded-2xl overflow-hidden">
+                {/* CAMBIO: Se eliminó overflow-hidden de este div para que el calendario no se corte */}
+                <div className="border border-gray-300 dark:border-gray-700 rounded-2xl">
                   <div className="grid grid-cols-2 border-b border-gray-300 dark:border-gray-700">
                     
                     <div className="p-2.5 border-r border-gray-300 dark:border-gray-700 relative">
@@ -290,7 +291,9 @@ export default function ReservationModal({ listing, onClose, onReserve, reservat
                         minDate={today}
                         excludeDateIntervals={excludedIntervals}
                         dateFormat="yyyy-MM-dd"
-                        className="w-full text-xs font-semibold bg-transparent focus:outline-none dark:text-white cursor-pointer"
+                        wrapperClassName="w-full"
+                        className="w-full min-w-0 text-xs font-semibold bg-transparent focus:outline-none dark:text-white cursor-pointer"
+                        popperClassName="z-[100]" /* CAMBIO: Hace que el calendario flote por encima de todo */
                       />
                     </div>
                     
@@ -305,7 +308,9 @@ export default function ReservationModal({ listing, onClose, onReserve, reservat
                         minDate={checkIn || today}
                         excludeDateIntervals={excludedIntervals}
                         dateFormat="yyyy-MM-dd"
-                        className="w-full text-xs font-semibold bg-transparent focus:outline-none dark:text-white cursor-pointer"
+                        wrapperClassName="w-full"
+                        className="w-full min-w-0 text-xs font-semibold bg-transparent focus:outline-none dark:text-white cursor-pointer"
+                        popperClassName="z-[100]" /* CAMBIO: Hace que el calendario flote por encima de todo */
                       />
                     </div>
                   </div>

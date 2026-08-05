@@ -24,12 +24,19 @@ export default function PropertyMap({ properties = [] }) {
 
     map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
-    // Forzar el redibujado para que aparezca el pin correctamente
-    setTimeout(() => {
+    // SOLUCIÓN AL MAPA EN BLANCO: Forzamos redibujado dinámico
+    const resizeObserver = new ResizeObserver(() => {
       map.current?.resize();
-    }, 250);
+    });
+    
+    if (mapContainer.current) {
+      resizeObserver.observe(mapContainer.current);
+    }
+    // Redibujado de seguridad a los 300ms
+    setTimeout(() => map.current?.resize(), 300);
 
     return () => {
+      resizeObserver.disconnect();
       map.current?.remove();
       map.current = null;
     };
@@ -68,7 +75,7 @@ export default function PropertyMap({ properties = [] }) {
   }, [properties]);
 
   return (
-    <div className="w-full h-[500px] rounded-2xl overflow-hidden shadow-lg border border-gray-200 dark:border-gray-800 relative">
+    <div className="w-full h-full rounded-2xl overflow-hidden shadow-lg border border-gray-200 dark:border-gray-800 relative bg-gray-100 dark:bg-gray-800">
       <div ref={mapContainer} className="w-full h-full absolute inset-0" />
     </div>
   );

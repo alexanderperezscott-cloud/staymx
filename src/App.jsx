@@ -140,7 +140,6 @@ export default function App() {
       }))
       setListings(dbListings)
     } else {
-      // AQUÍ ESTÁ EL CAMBIO: Si no hay datos, muestra arreglo vacío, no datos falsos.
       setListings([])
     }
     setLoadingListings(false)
@@ -207,10 +206,8 @@ export default function App() {
     }
   }
 
-  // --- SOLUCIÓN DEL CIERRE DE SESIÓN ---
   const handleSignOut = async () => {
     await signOutUser();
-    // Si estás en una ruta protegida, te mandamos al inicio para evitar la pantalla negra
     if (page === "reservations" || page === "publish" || page === "admin") {
       setPage("home");
     }
@@ -250,7 +247,7 @@ export default function App() {
         user={user}
         userRole={userRole}
         onOpenAuth={() => setAuthOpen(true)}
-        onSignOut={handleSignOut} // Conectamos la nueva función aquí
+        onSignOut={handleSignOut}
         onOpenPublish={() => user ? setPage("publish") : setAuthOpen(true)}
         onOpenMyListings={() => user ? setPage("reservations") : setAuthOpen(true)} 
         savedCount={savedIds.length}
@@ -259,12 +256,10 @@ export default function App() {
 
       <AuthModal isOpen={authOpen} onClose={() => setAuthOpen(false)} onSuccess={u => setUser(u)} />
 
-      {/* ADMIN ROUTE */}
       {page === "admin" && userRole === "admin" && (
         <AdminDashboard listings={listings} onDelete={handleDeleteListing} />
       )}
 
-      {/* MODO ANFITRIÓN ROUTE */}
       {page === "publish" && ( 
         <HostModeWrapper 
           onPublish={() => { fetchListings(); setPage("explore") }} 
@@ -276,7 +271,6 @@ export default function App() {
         />
       )}
 
-      {/* HOME ROUTE */}
       {page === "home" && (
         <div>
           <div className="relative bg-gray-900 text-white py-28 px-6 text-center overflow-hidden flex items-center justify-center">
@@ -312,7 +306,6 @@ export default function App() {
         </div>
       )}
 
-      {/* MIS ALOJAMIENTOS ROUTE */}
       {page === "reservations" && (
         <div className="max-w-7xl mx-auto px-6 py-10">
           <h2 className="text-3xl font-black mb-2">Mis Alojamientos</h2>
@@ -402,26 +395,14 @@ export default function App() {
               })}
             </div>
           )}
-
-          <ReservationChat 
-            isOpen={!!chatReservation} 
-            onClose={() => setChatReservation(null)}
-            reservation={chatReservation?.reservation}
-            listingInfo={chatReservation?.listingInfo}
-            currentUser={user}
-          />
         </div>
       )}
 
-      {/* EXPLORE ROUTE */}
       {page === "explore" && (
         <div className="max-w-7xl mx-auto px-6 py-10">
-          
           <div className="mb-10">
             <h2 className="text-3xl font-black mb-4">Explorar alojamientos</h2>
-            
             <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-4 rounded-3xl shadow-sm flex flex-col lg:flex-row gap-4 items-center">
-              
               <div className="relative w-full lg:w-1/3">
                 <span className="absolute left-4 top-3 text-lg">🔍</span>
                 <input
@@ -432,7 +413,6 @@ export default function App() {
                   className="w-full pl-12 pr-4 py-3 border-none bg-gray-100 dark:bg-gray-950 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 text-gray-900 dark:text-white"
                 />
               </div>
-
               <div className="w-full lg:w-1/4">
                 <select 
                   value={propertyType} 
@@ -445,7 +425,6 @@ export default function App() {
                   ))}
                 </select>
               </div>
-
               <div className="w-full lg:w-1/4 flex flex-col justify-center px-2">
                 <div className="flex justify-between items-center mb-1">
                   <label className="text-xs font-bold text-gray-500">Precio máximo</label>
@@ -461,14 +440,12 @@ export default function App() {
                   className="w-full accent-rose-500 cursor-pointer"
                 />
               </div>
-
               <button 
                 onClick={handleSurpriseMe}
                 className="w-full lg:w-auto shrink-0 bg-rose-500 hover:bg-rose-600 text-white font-black text-sm px-6 py-3 rounded-2xl shadow-md transition-all flex items-center justify-center gap-2"
               >
                 🎲 ¡Sorpréndeme!
               </button>
-
             </div>
           </div>
 
@@ -526,6 +503,15 @@ export default function App() {
         </div>
       )}
 
+      {/* --- EL CHAT MOVIDO AL FINAL PARA QUE SIEMPRE ESTÉ PRESENTE --- */}
+      <ReservationChat 
+        isOpen={!!chatReservation} 
+        onClose={() => setChatReservation(null)}
+        reservation={chatReservation?.reservation}
+        listingInfo={chatReservation?.listingInfo}
+        currentUser={user}
+      />
+
       <ReservationModal 
         listing={selectedListing} 
         onClose={() => setSelectedListing(null)} 
@@ -533,7 +519,6 @@ export default function App() {
         reservations={reservations} 
         user={user} 
         openAuth={() => { setSelectedListing(null); setAuthOpen(true); }} 
-        // Pasamos el total de reservaciones al modal
         activeReservationsCount={userActiveReservations.length} 
       />
 
