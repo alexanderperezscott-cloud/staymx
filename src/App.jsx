@@ -122,7 +122,7 @@ export default function App() {
         title: i.title, 
         location: `${i.city || i.address || 'México'}, ${i.state || ''}`, 
         price: i.price_per_night || i.price,
-        phone: i.phone || 'No especificado',
+        phone: i.phone || '',
         rating: 5.0, 
         reviews: 0, 
         img: i.image_url || i.img || "https://images.unsplash.com/photo-1587061949409-02df41d5e562?w=800&q=80", 
@@ -359,13 +359,26 @@ export default function App() {
 
                     {!isCancelled && (
                       <div className="flex flex-wrap gap-3 pt-4 border-t border-gray-100 dark:border-gray-800">
-                        <a 
-                          href={`tel:${listingInfo?.phone || ''}`}
-                          className="flex-1 bg-gray-900 hover:bg-gray-800 dark:bg-white dark:hover:bg-gray-200 dark:text-gray-900 text-white py-2.5 rounded-xl font-bold text-center text-sm transition flex flex-col items-center justify-center leading-tight"
-                        >
-                          <span>📞 Contactar con su número</span>
-                          <span className="text-[11px] opacity-80 font-normal">{listingInfo?.phone ? `+52 ${listingInfo.phone}` : 'No especificado'}</span>
-                        </a>
+                        
+                        {/* --- LÓGICA DEL BOTÓN DE LLAMADA MEJORADA --- */}
+                        {listingInfo?.phone && listingInfo.phone.length > 5 ? (
+                          <a 
+                            href={`tel:${listingInfo.phone}`}
+                            className="flex-1 bg-gray-900 hover:bg-gray-800 dark:bg-white dark:hover:bg-gray-200 dark:text-gray-900 text-white py-2.5 rounded-xl font-bold text-center text-sm transition flex flex-col items-center justify-center leading-tight"
+                            title="Llamar al anfitrión (solo funciona en celulares)"
+                          >
+                            <span>📞 Llamar</span>
+                            <span className="text-[11px] opacity-80 font-normal">+52 {listingInfo.phone}</span>
+                          </a>
+                        ) : (
+                          <button 
+                            disabled
+                            className="flex-1 bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 py-2.5 rounded-xl font-bold text-center text-sm transition flex flex-col items-center justify-center leading-tight cursor-not-allowed border border-gray-200 dark:border-gray-700"
+                          >
+                            <span>📞 Sin número</span>
+                            <span className="text-[11px] font-normal">No disponible</span>
+                          </button>
+                        )}
 
                         <button 
                           onClick={() => setChatReservation({ reservation: r, listingInfo })}
@@ -376,8 +389,8 @@ export default function App() {
                       </div>
                     )}
 
-                    {!isCancelled && listingInfo?.latitude && (
-                      <div className="w-full h-48 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-800 mt-2">
+                    {!isCancelled && (
+                      <div className="w-full h-48 rounded-xl border border-gray-200 dark:border-gray-800 mt-2 relative">
                          <PropertyMap properties={[listingInfo]} />
                       </div>
                     )}
@@ -484,7 +497,6 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-6 py-10">
           <h2 className="text-3xl font-black mb-2">Tus Alojamientos Favoritos</h2>
           <p className="text-sm text-gray-500 mb-8">Lugares que has guardado para tu próximo viaje.</p>
-
           {savedListings.length === 0 ? (
             <div className="text-center py-20 text-gray-400">
               <p className="text-5xl mb-3">🤍</p>
@@ -503,7 +515,6 @@ export default function App() {
         </div>
       )}
 
-      {/* --- EL CHAT MOVIDO AL FINAL PARA QUE SIEMPRE ESTÉ PRESENTE --- */}
       <ReservationChat 
         isOpen={!!chatReservation} 
         onClose={() => setChatReservation(null)}

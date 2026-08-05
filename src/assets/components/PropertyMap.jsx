@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
@@ -9,39 +9,56 @@ export default function PropertyMap({ properties = [] }) {
   const map = useRef(null);
 
   useEffect(() => {
-    if (map.current) return; 
+    if (map.current || !mapContainer.current) return;
 
+    // 1. Validar coordenadas estrictamente (Si fallan, carga CDMX por defecto)
     const firstProp = properties.length > 0 ? properties[0] : null;
-    const initialLng = firstProp && firstProp.longitude ? Number(firstProp.longitude) : -99.1332;
-    const initialLat = firstProp && firstProp.latitude ? Number(firstProp.latitude) : 19.4326;
+    let lat = 19.4326; 
+    let lng = -99.1332; 
 
+    if (firstProp && firstProp.latitude && firstProp.longitude) {
+      const parsedLat = parseFloat(firstProp.latitude);
+      const parsedLng = parseFloat(firstProp.longitude);
+      // Solo usamos las coordenadas si son números reales válidos
+      if (!isNaN(parsedLat) && !isNaN(parsedLng)) {
+        lat = parsedLat;
+        lng = parsedLng;
+      }
+    }
+
+    // 2. Inicializar mapa
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
       style: 'mapbox://styles/mapbox/streets-v12',
-      center: [initialLng, initialLat],
-      zoom: 14,
+      center: [lng, lat],
+      zoom: 13, 
     });
 
     map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
-    // SOLUCIÓN AL MAPA EN BLANCO: Forzamos redibujado dinámico
+    // 3. Forzar redibujado cuando el mapa termine de cargar sus estilos
+    map.current.on('load', () => {
+      map.current.resize();
+    });
+
+    // 4. Observar cambios en el tamaño del contenedor (Soluciona el mapa en blanco)
     const resizeObserver = new ResizeObserver(() => {
       map.current?.resize();
     });
-    
-    if (mapContainer.current) {
-      resizeObserver.observe(mapContainer.current);
-    }
-    // Redibujado de seguridad a los 300ms
+    resizeObserver.observe(mapContainer.current);
+
+    // 5. Seguros de tiempo extra para animaciones de React
     setTimeout(() => map.current?.resize(), 300);
+    setTimeout(() => map.current?.resize(), 800);
 
     return () => {
       resizeObserver.disconnect();
       map.current?.remove();
       map.current = null;
     };
-  }, []);
+  }, [properties]);
 
+  // Efecto para renderizar el PIN rojo
   useEffect(() => {
     if (!map.current) return;
 
@@ -49,8 +66,8 @@ export default function PropertyMap({ properties = [] }) {
     currentMarkers.forEach(marker => marker.remove());
 
     properties.forEach((prop) => {
-      const lat = Number(prop.latitude);
-      const lng = Number(prop.longitude);
+      const lat = parseFloat(prop.latitude);
+      const lng = parseFloat(prop.longitude);
 
       if (!isNaN(lat) && !isNaN(lng)) {
         const popup = new mapboxgl.Popup({ offset: 25, closeButton: false }).setHTML(
@@ -64,19 +81,12 @@ export default function PropertyMap({ properties = [] }) {
           .setLngLat([lng, lat])
           .setPopup(popup)
           .addTo(map.current);
-
-        map.current.flyTo({
-          center: [lng, lat],
-          zoom: 14,
-          essential: true
-        });
       }
     });
   }, [properties]);
 
   return (
-    <div className="w-full h-full rounded-2xl overflow-hidden shadow-lg border border-gray-200 dark:border-gray-800 relative bg-gray-100 dark:bg-gray-800">
-      <div ref={mapContainer} className="w-full h-full absolute inset-0" />
-    </div>
+    // CAMBIO IMPORTANTE: Agregamos min-h-[200px] para forzar que la caja exista
+    <div ref={mapContainer} className="w-full h-full min-h-[200px] rounded-xl bg-gray-100 dark:bg-gray-800" />
   );
 }
