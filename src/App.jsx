@@ -7,6 +7,8 @@ import AdminDashboard from './assets/components/AdminDashboard.jsx'
 import AuthModal from './assets/components/LoginModal.jsx'
 import ReservationChat from './assets/components/ReservationChat.jsx'
 import HostModeWrapper from './assets/components/HostModeWrapper.jsx' 
+import PropertyMap from './assets/components/PropertyMap.jsx' 
+import Footer from './assets/components/Footer.jsx'
 import toast, { Toaster } from 'react-hot-toast'
 
 import { 
@@ -21,7 +23,7 @@ import {
   toggleFavorite     
 } from './config/supabase'
 
-import { initialListings } from './data/initialData'
+import { initialListings, tiposOpc } from './data/initialData'
 
 export default function App() {
   const [page, setPage]                       = useState("home")
@@ -132,11 +134,14 @@ export default function App() {
         superhost: false,
         amenities: i.amenities || ["WiFi"], 
         description: i.description, 
-        address: i.address
+        address: i.address,
+        latitude: i.latitude,
+        longitude: i.longitude
       }))
       setListings(dbListings)
     } else {
-      setListings(initialListings)
+      // AQUÍ ESTÁ EL CAMBIO: Si no hay datos, muestra arreglo vacío, no datos falsos.
+      setListings([])
     }
     setLoadingListings(false)
   }
@@ -202,9 +207,18 @@ export default function App() {
     }
   }
 
+  // --- SOLUCIÓN DEL CIERRE DE SESIÓN ---
+  const handleSignOut = async () => {
+    await signOutUser();
+    // Si estás en una ruta protegida, te mandamos al inicio para evitar la pantalla negra
+    if (page === "reservations" || page === "publish" || page === "admin") {
+      setPage("home");
+    }
+  };
+
   const savedListings = listings.filter(l => savedIds.includes(l.id))
   const userActiveReservations = reservations.filter(r => user && r.guest_id === user.id && r.status !== 'cancelled')
-  const userReservationsAll = reservations.filter(r => user && r.guest_id === user.id)
+  const userReservationsAll = reservations.filter(r => user && r.guest_id === user.id && r.status !== 'cancelled')
 
   const handleSurpriseMe = () => {
     if (listings.length === 0) return
@@ -212,13 +226,6 @@ export default function App() {
     setSelectedListing(listings[randomIndex])
   }
 
-  // Extraer tipos de propiedades únicos dinámicamente de la base de datos
-  const uniquePropertyTypes = useMemo(() => {
-    const types = listings.map(l => l.type)
-    return [...new Set(types)].filter(Boolean)
-  }, [listings])
-
-  // Lógica del filtro optimizada (Combina texto, ciudad, precio y tipo)
   const filteredListings = useMemo(() => {
     return listings.filter(l => {
       const matchSearch = l.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -231,7 +238,7 @@ export default function App() {
   }, [listings, searchTerm, maxPrice, propertyType])
 
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-50 font-sans pb-16 lg:pb-0 transition-colors">
+    <div className="flex flex-col min-h-screen bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-50 font-sans pb-16 lg:pb-0 transition-colors">
       
       <Toaster position="bottom-center" />
 
@@ -243,8 +250,9 @@ export default function App() {
         user={user}
         userRole={userRole}
         onOpenAuth={() => setAuthOpen(true)}
-        onSignOut={signOutUser}
+        onSignOut={handleSignOut} // Conectamos la nueva función aquí
         onOpenPublish={() => user ? setPage("publish") : setAuthOpen(true)}
+        onOpenMyListings={() => user ? setPage("reservations") : setAuthOpen(true)} 
         savedCount={savedIds.length}
         reservationsCount={userActiveReservations.length}
       />
@@ -256,13 +264,15 @@ export default function App() {
         <AdminDashboard listings={listings} onDelete={handleDeleteListing} />
       )}
 
-      {/* PUBLISH ROUTE (MODO ANFITRIÓN CON INE) - CORREGIDO AQUÍ */}
-      {page === "publish" && (
+      {/* MODO ANFITRIÓN ROUTE */}
+      {page === "publish" && ( 
         <HostModeWrapper 
           onPublish={() => { fetchListings(); setPage("explore") }} 
           onCancel={() => setPage("home")} 
           userId={user?.id}
           user={user}
+          initialView="list"
+          onOpenChat={(reservation, listingInfo) => setChatReservation({ reservation, listingInfo })}
         />
       )}
 
@@ -275,7 +285,7 @@ export default function App() {
               <div className="flex gap-3 justify-center flex-wrap mt-6">
                 <button onClick={() => setPage("explore")} className="bg-rose-500 hover:bg-rose-600 text-white px-8 py-3 rounded-full font-bold">Comenzar a explorar</button>
                 <button onClick={() => user ? setPage("reservations") : setAuthOpen(true)} className="bg-white/10 border border-white/20 text-white px-8 py-3 rounded-full font-bold">
-                  Mis Reservaciones
+                  Mis Alojamientos
                 </button>
               </div>
             </div>
@@ -302,11 +312,11 @@ export default function App() {
         </div>
       )}
 
-      {/* MIS RESERVACIONES ROUTE */}
+      {/* MIS ALOJAMIENTOS ROUTE */}
       {page === "reservations" && (
         <div className="max-w-7xl mx-auto px-6 py-10">
-          <h2 className="text-3xl font-black mb-2">Tus Reservaciones</h2>
-          <p className="text-sm text-gray-500 mb-8">Consulta tus próximas estancias y gestiona tus fechas.</p>
+          <h2 className="text-3xl font-black mb-2">Mis Alojamientos</h2>
+          <p className="text-sm text-gray-500 mb-8">Consulta tus próximas estancias, su ubicación y contacta a tu anfitrión.</p>
 
           {!user ? (
             <div className="text-center py-20 text-gray-400">
@@ -317,56 +327,76 @@ export default function App() {
             </div>
           ) : userReservationsAll.length === 0 ? (
             <div className="text-center py-20 text-gray-400">
-              <p className="text-base font-semibold">Aún no tienes reservaciones registradas.</p>
+              <p className="text-base font-semibold">Aún no tienes reservaciones activas registradas.</p>
               <button onClick={() => setPage("explore")} className="mt-4 bg-rose-500 text-white px-6 py-2 rounded-full font-bold text-xs">
                 Explorar alojamientos
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               {userReservationsAll.map(r => {
-                const listingInfo = listings.find(l => l.id === r.listing_id)
+                const listingInfo = listings.find(l => l.id === r.listing_id) || {}
                 const isCancelled = r.status === 'cancelled'
 
                 return (
-                  <div key={r.id} className="border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 rounded-2xl p-5 flex gap-4 items-center shadow-sm relative">
-                    <img src={listingInfo?.img || listingInfo?.image || "https://images.unsplash.com/photo-1587061949409-02df41d5e562?w=400&q=80"} alt="Alojamiento" className="w-24 h-24 rounded-xl object-cover shrink-0"/>
+                  <div key={r.id} className="border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 rounded-3xl p-6 shadow-md flex flex-col gap-6 relative">
                     
-                    <div className="flex-1">
-                      <h3 className="font-bold text-base text-gray-900 dark:text-gray-100">{listingInfo?.title || 'Alojamiento en StayMX'}</h3>
-                      <p className="text-xs text-rose-500 font-semibold mt-1">Del {r.check_in} al {r.check_out}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">Huéspedes: {r.guests_count || 1} · Total: ${r.total_price ? Number(r.total_price).toLocaleString() : '0'} MXN</p>
+                    <div className="flex gap-4 items-start">
+                      <img src={listingInfo?.img || listingInfo?.images?.[0] || "https://images.unsplash.com/photo-1587061949409-02df41d5e562?w=400&q=80"} alt="Alojamiento" className="w-32 h-32 rounded-2xl object-cover shrink-0 shadow-sm"/>
                       
-                      <p className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold mt-1 flex items-center gap-1">
-                         Anfitrión: <a href={`tel:${listingInfo?.phone}`} className="underline hover:text-emerald-500">{listingInfo?.phone || 'No especificado'}</a>
-                      </p>
+                      <div className="flex-1 space-y-1">
+                        <h3 className="font-bold text-lg text-gray-900 dark:text-gray-100 leading-tight">{listingInfo?.title || 'Alojamiento en StayMX'}</h3>
+                        <p className="text-sm text-rose-500 font-bold mt-1">Del {r.check_in} al {r.check_out}</p>
+                        
+                        <p className="text-xs text-gray-600 dark:text-gray-300 font-medium flex items-center gap-1 mt-1">
+                          📍 {listingInfo?.address ? `Dirección: ${listingInfo.address}` : 'Dirección no especificada'}
+                        </p>
 
-                      <button 
-                        onClick={() => setChatReservation({ reservation: r, listingInfo })}
-                        className="mt-2 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
-                      >
-                        💬 Enviar Mensaje
-                      </button>
-
-                      <div className="flex items-center justify-between mt-3">
-                        <span className={`px-2.5 py-0.5 text-[10px] font-bold rounded-full ${
+                        <p className="text-sm text-gray-500 mt-1">Total pagado: ${r.total_price ? Number(r.total_price).toLocaleString() : '0'} MXN</p>
+                        
+                        <span className={`inline-block mt-2 px-3 py-1 text-xs font-bold rounded-full ${
                           isCancelled 
-                            ? "bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-400" 
-                            : "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400"
+                            ? "bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-400 border border-rose-200" 
+                            : "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400 border border-emerald-200"
                         }`}>
-                          {isCancelled ? 'Cancelada' : 'Confirmada'}
+                          {isCancelled ? '❌ Cancelada' : '✅ Confirmada'}
                         </span>
-
-                        {!isCancelled && (
-                          <button 
-                            onClick={() => handleCancelReservation(r.id)}
-                            className="text-xs font-semibold text-rose-500 hover:text-rose-700 underline transition"
-                          >
-                            Cancelar estancia
-                          </button>
-                        )}
                       </div>
                     </div>
+
+                    {!isCancelled && (
+                      <div className="flex flex-wrap gap-3 pt-4 border-t border-gray-100 dark:border-gray-800">
+                        <a 
+                          href={`tel:${listingInfo?.phone || ''}`}
+                          className="flex-1 bg-gray-900 hover:bg-gray-800 dark:bg-white dark:hover:bg-gray-200 dark:text-gray-900 text-white py-2.5 rounded-xl font-bold text-center text-sm transition flex flex-col items-center justify-center leading-tight"
+                        >
+                          <span>📞 Contactar con su número</span>
+                          <span className="text-[11px] opacity-80 font-normal">{listingInfo?.phone ? `+52 ${listingInfo.phone}` : 'No especificado'}</span>
+                        </a>
+
+                        <button 
+                          onClick={() => setChatReservation({ reservation: r, listingInfo })}
+                          className="flex-1 border-2 border-gray-900 text-gray-900 hover:bg-gray-100 dark:border-white dark:text-white dark:hover:bg-gray-800 py-2.5 rounded-xl font-bold text-sm transition flex items-center justify-center"
+                        >
+                          💬 Mensaje directo
+                        </button>
+                      </div>
+                    )}
+
+                    {!isCancelled && listingInfo?.latitude && (
+                      <div className="w-full h-48 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-800 mt-2">
+                         <PropertyMap properties={[listingInfo]} />
+                      </div>
+                    )}
+
+                    {!isCancelled && (
+                      <button 
+                        onClick={() => handleCancelReservation(r.id)}
+                        className="mt-2 text-sm font-semibold text-rose-500 hover:text-rose-700 hover:underline transition self-center"
+                      >
+                        Cancelar reservación
+                      </button>
+                    )}
                   </div>
                 )
               })}
@@ -383,17 +413,15 @@ export default function App() {
         </div>
       )}
 
-      {/* EXPLORE ROUTE (NUEVO BUSCADOR AVANZADO) */}
+      {/* EXPLORE ROUTE */}
       {page === "explore" && (
         <div className="max-w-7xl mx-auto px-6 py-10">
           
           <div className="mb-10">
             <h2 className="text-3xl font-black mb-4">Explorar alojamientos</h2>
             
-            {/* Barra de Filtros */}
             <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-4 rounded-3xl shadow-sm flex flex-col lg:flex-row gap-4 items-center">
               
-              {/* Búsqueda por Texto (Ciudad / Título) */}
               <div className="relative w-full lg:w-1/3">
                 <span className="absolute left-4 top-3 text-lg">🔍</span>
                 <input
@@ -405,7 +433,6 @@ export default function App() {
                 />
               </div>
 
-              {/* Filtro por Tipo */}
               <div className="w-full lg:w-1/4">
                 <select 
                   value={propertyType} 
@@ -413,13 +440,12 @@ export default function App() {
                   className="w-full px-4 py-3 border-none bg-gray-100 dark:bg-gray-950 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 text-gray-900 dark:text-white cursor-pointer"
                 >
                   <option value="all">Cualquier tipo</option>
-                  {uniquePropertyTypes.map(type => (
+                  {tiposOpc.map(type => (
                     <option key={type} value={type}>{type}</option>
                   ))}
                 </select>
               </div>
 
-              {/* Filtro por Precio Máximo */}
               <div className="w-full lg:w-1/4 flex flex-col justify-center px-2">
                 <div className="flex justify-between items-center mb-1">
                   <label className="text-xs font-bold text-gray-500">Precio máximo</label>
@@ -436,7 +462,6 @@ export default function App() {
                 />
               </div>
 
-              {/* Botón Sorpréndeme */}
               <button 
                 onClick={handleSurpriseMe}
                 className="w-full lg:w-auto shrink-0 bg-rose-500 hover:bg-rose-600 text-white font-black text-sm px-6 py-3 rounded-2xl shadow-md transition-all flex items-center justify-center gap-2"
@@ -447,7 +472,6 @@ export default function App() {
             </div>
           </div>
 
-          {/* Grilla de Resultados */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {loadingListings ? (
               Array.from({ length: 8 }).map((_, i) => (
@@ -479,7 +503,6 @@ export default function App() {
         </div>
       )}
 
-      {/* FAVORITES ROUTE */}
       {page === "favorites" && (
         <div className="max-w-7xl mx-auto px-6 py-10">
           <h2 className="text-3xl font-black mb-2">Tus Alojamientos Favoritos</h2>
@@ -510,7 +533,11 @@ export default function App() {
         reservations={reservations} 
         user={user} 
         openAuth={() => { setSelectedListing(null); setAuthOpen(true); }} 
+        // Pasamos el total de reservaciones al modal
+        activeReservationsCount={userActiveReservations.length} 
       />
+
+      <Footer />
 
     </div>
   )

@@ -1,5 +1,6 @@
 // src/config/supabase.js
 import { createClient } from '@supabase/supabase-js'
+import { sanitizeText, sanitizePhone, sanitizeStringArray, sanitizeNumber } from '../utils/security.js'
 
 const FALLBACK_URL = "https://hvrehrrebhgoqjibdszs.supabase.co"
 
@@ -40,21 +41,21 @@ export async function createListing(newListing) {
     .insert([
       {
         host_id: session.user.id,
-        title: newListing.title,
-        property_type: newListing.type,
-        price_per_night: newListing.price,
-        address: newListing.address || 'Sin dirección',
-        city: newListing.city || 'Desconocido',
-        state: newListing.state || 'México',
-        guests: newListing.guests || 1,
-        beds: newListing.beds || 1,
-        baths: newListing.baths || 1,
-        description: newListing.description,
-        amenities: newListing.amenities || [],
-        image_url: newListing.img,
-        phone: newListing.phone,          // <-- Agregado para validación de teléfono
-        latitude: newListing.latitude,    // <-- Agregado para Mapbox
-        longitude: newListing.longitude   // <-- Agregado para Mapbox
+        title: sanitizeText(newListing.title, 120),
+        property_type: sanitizeText(newListing.type, 60),
+        price_per_night: sanitizeNumber(newListing.price, 0),
+        address: sanitizeText(newListing.address || 'Sin dirección', 160),
+        city: sanitizeText(newListing.city || 'Desconocido', 80),
+        state: sanitizeText(newListing.state || 'México', 80),
+        guests: sanitizeNumber(newListing.guests || 1, 1),
+        beds: sanitizeNumber(newListing.beds || 1, 1),
+        baths: sanitizeNumber(newListing.baths || 1, 1),
+        description: sanitizeText(newListing.description, 1000),
+        amenities: sanitizeStringArray(newListing.amenities || []),
+        image_url: sanitizeText(newListing.img, 500),
+        phone: sanitizePhone(newListing.phone),
+        latitude: sanitizeNumber(newListing.latitude, 0),
+        longitude: sanitizeNumber(newListing.longitude, 0)
       }
     ])
     .select()
@@ -105,12 +106,12 @@ export async function createReservation(reservation) {
     .from('reservations')
     .insert([
       {
-        listing_id: targetListingId,
+        listing_id: sanitizeNumber(targetListingId, 0),
         guest_id: session.user.id,
-        check_in: reservation.checkIn,
-        check_out: reservation.checkOut,
-        guests_count: reservation.guests,
-        total_price: reservation.total,
+        check_in: sanitizeText(reservation.checkIn, 20),
+        check_out: sanitizeText(reservation.checkOut, 20),
+        guests_count: sanitizeNumber(reservation.guests || 1, 1),
+        total_price: sanitizeNumber(reservation.total, 0),
         status: 'confirmed'
       }
     ])
@@ -152,13 +153,13 @@ export async function createReservationWithPayment(reservation) {
     .from('reservations')
     .insert([
       {
-        listing_id: targetListingId,
+        listing_id: sanitizeNumber(targetListingId, 0),
         guest_id: session.user.id,
-        check_in: reservation.checkIn,
-        check_out: reservation.checkOut,
-        guests_count: reservation.guests,
-        total_price: reservation.total,
-        payment_method: reservation.paymentMethod || 'card',
+        check_in: sanitizeText(reservation.checkIn, 20),
+        check_out: sanitizeText(reservation.checkOut, 20),
+        guests_count: sanitizeNumber(reservation.guests || 1, 1),
+        total_price: sanitizeNumber(reservation.total, 0),
+        payment_method: sanitizeText(reservation.paymentMethod || 'card', 40),
         status: 'confirmed'
       }
     ])
@@ -319,10 +320,10 @@ export async function sendMessage(reservationId, receiverId, content) {
   const { data, error } = await supabase
     .from('messages')
     .insert([{
-      reservation_id: reservationId,
+      reservation_id: sanitizeNumber(reservationId, 0),
       sender_id: session.user.id,
-      receiver_id: receiverId,
-      content: content
+      receiver_id: sanitizeNumber(receiverId, 0),
+      content: sanitizeText(content, 2000)
     }])
     .select()
 
@@ -394,10 +395,10 @@ export async function submitReview(listingId, rating, comment) {
   const { data, error } = await supabase
     .from('reviews')
     .insert([{ 
-      listing_id: listingId, 
+      listing_id: sanitizeNumber(listingId, 0), 
       user_id: session.user.id, 
-      rating, 
-      comment 
+      rating: sanitizeNumber(rating, 0), 
+      comment: sanitizeText(comment, 1000) 
     }])
     .select()
 

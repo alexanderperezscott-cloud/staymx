@@ -1,12 +1,40 @@
 // src/assets/components/ReservationModal.jsx
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import { createReservationWithPayment } from '../../config/supabase'
-import { addDays, diffDays, today } from '../../data/initialData'
 import ReviewsSection from './ReviewsSection' 
+import DatePicker from 'react-datepicker'
+import "react-datepicker/dist/react-datepicker.css"
+import { sanitizeText, sanitizePhone } from '../../utils/security'
 
-// MEJORA ARQUITECTÓNICA: Custom Hook para separar la lógica financiera de la UI
-function useReservationPricing(checkIn, checkOut, pricePerNight, rateType) {
-  const nights = Math.max(1, diffDays(checkIn, checkOut));
+// Funciones para manejar fechas fácilmente
+const today = new Date();
+const getTomorrow = () => {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return d;
+}
+const getNextWeek = () => {
+  const d = new Date();
+  d.setDate(d.getDate() + 4);
+  return d;
+}
+
+// Convertimos las fechas a String (YYYY-MM-DD) para mandarlas a Supabase
+const formatDateForDB = (dateObj) => {
+  if (!dateObj) return '';
+  const year = dateObj.getFullYear();
+  const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const day = String(dateObj.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+// Custom Hook adaptado para Objetos Date
+function useReservationPricing(checkInDate, checkOutDate, pricePerNight, rateType) {
+  // Calculamos diferencia en días
+  const diffTime = checkOutDate && checkInDate ? Math.abs(checkOutDate - checkInDate) : 0;
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  
+  const nights = Math.max(1, diffDays || 1);
   const basePrice = pricePerNight * nights;
   const discount = Math.round(basePrice * 0.07);
   const taxes = Math.round((basePrice - discount) * 0.16);
@@ -16,56 +44,96 @@ function useReservationPricing(checkIn, checkOut, pricePerNight, rateType) {
   return { nights, basePrice, discount, taxes, total };
 }
 
-export default function ReservationModal({ listing, onClose, onReserve, reservations, user, openAuth }) {
+export default function ReservationModal({ listing, onClose, onReserve, reservations, user, openAuth, activeReservationsCount = 0 }) {
   if (!listing) return null
 
-  // Checkout Step State: 'details' -> 'checkout'
+  // Checkout Step State
   const [step, setStep] = useState('details')
 
-  // Reservation inputs
-  const [checkIn, setCheckIn] = useState(addDays(today, 1))
-  const [checkOut, setCheckOut] = useState(addDays(today, 4))
+  // Fechas ahora son Objetos Date para react-datepicker
+  const [checkIn, setCheckIn] = useState(getTomorrow())
+  const [checkOut, setCheckOut] = useState(getNextWeek())
   const [guests, setGuests] = useState(1)
-  const [rateType, setRateType] = useState('non_refundable') // 'non_refundable' | 'refundable'
+  const [rateType, setRateType] = useState('non_refundable') 
   const [paymentOption, setPaymentOption] = useState('full')
   const [paymentMethod, setPaymentMethod] = useState('card')
+
+  // Tarjeta de pago
+  const [cardNumber, setCardNumber] = useState('')
+  const [cardExpiry, setCardExpiry] = useState('')
+  const [cardCvv, setCardCvv] = useState('')
+
+  const handleCardNumber = (e) => setCardNumber(e.target.value.replace(/\D/g, '').slice(0, 16));
+  const handleCvv = (e) => setCardCvv(e.target.value.replace(/\D/g, '').slice(0, 4));
+  const handleExpiry = (e) => {
+    let val = e.target.value.replace(/\D/g, ''); 
+    if (val.length >= 2) {
+      val = val.substring(0, 2) + '/' + val.substring(2, 4); 
+    }
+    setCardExpiry(val);
+  }
 
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState(false)
 
-  // Active bookings for date availability
-  const activeBookings = (reservations || []).filter(
-    r => (r.listing_id === listing.id || r.listingId === listing.id) && r.status !== 'cancelled'
-  )
+  // ----- LÓGICA DE FECHAS BLOQUEADAS (Calendario Oscuro) -----
+  const activeBookings = useMemo(() => {
+    return (reservations || []).filter(
+      r => (r.listing_id === listing.id || r.listingId === listing.id) && r.status !== 'cancelled'
+    )
+  }, [reservations, listing.id]);
 
-  const isBlocked = activeBookings.some(r => {
-    const resIn = r.check_in || r.checkIn
-    const resOut = r.check_out || r.checkOut
-    return checkIn < resOut && checkOut > resIn
-  })
+  // Convertimos las reservas activas en intervalos bloqueados para react-datepicker
+  const excludedIntervals = useMemo(() => {
+    return activeBookings.map(r => ({
+      start: new Date(r.check_in || r.checkIn),
+      end: new Date(r.check_out || r.checkOut)
+    }));
+  }, [activeBookings]);
 
-  // Usamos el nuevo Custom Hook para los cálculos
+  // Verificar si la selección actual choca con alguna reserva
+  const isBlocked = useMemo(() => {
+    if (!checkIn || !checkOut) return false;
+    return activeBookings.some(r => {
+      const resIn = new Date(r.check_in || r.checkIn);
+      const resOut = new Date(r.check_out || r.checkOut);
+      return checkIn < resOut && checkOut > resIn;
+    });
+  }, [checkIn, checkOut, activeBookings]);
+
+  // --- LÍMITE DE RESERVACIONES ---
+  const hasReachedLimit = activeReservationsCount >= 3;
+
+  // Precios
   const pricePerNight = Number(listing.price || listing.price_per_night || 0);
   const { nights, basePrice, discount, taxes, total } = useReservationPricing(checkIn, checkOut, pricePerNight, rateType);
 
-  // STRICT REAL IMAGES (No random stock photo fallbacks)
   const images = Array.isArray(listing.images) && listing.images.length > 0
     ? listing.images
     : [listing.img || listing.image_url || listing.image].filter(Boolean)
 
-  const handleConfirmReservation = async () => {
+  const handleConfirmReservation = async (e) => {
+    if (e) e.preventDefault(); 
     if (!user) {
       openAuth()
       return
     }
 
-    if (isBlocked) return
+    if (isBlocked || hasReachedLimit) return
+
+    const cleanPhone = sanitizePhone(cardNumber)
+    const cleanCvv = sanitizeText(cardCvv, 4)
+
+    if (paymentMethod === 'card' && (cleanPhone.length < 12 || cleanCvv.length < 3)) {
+      alert('Ingresa una tarjeta válida antes de confirmar.')
+      return
+    }
 
     setLoading(true)
     const { data, error } = await createReservationWithPayment({
       listingId: listing.id,
-      checkIn,
-      checkOut,
+      checkIn: formatDateForDB(checkIn),
+      checkOut: formatDateForDB(checkOut),
       guests,
       total,
       paymentMethod
@@ -93,17 +161,15 @@ export default function ReservationModal({ listing, onClose, onReserve, reservat
         >
           ← {step === 'checkout' ? 'Volver a detalles' : 'Cerrar'}
         </button>
-
         <span className="text-xl font-black text-rose-500 tracking-tight">staymx</span>
       </div>
 
-      {/* SUCCESS CONFIRMATION MODAL */}
       {done ? (
         <div className="max-w-md mx-auto my-20 p-8 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-3xl text-center shadow-xl">
           <p className="text-5xl mb-4">🎉</p>
           <h2 className="text-2xl font-black text-emerald-800 dark:text-emerald-300 mb-2">¡Reservación Confirmada!</h2>
           <p className="text-sm text-emerald-700 dark:text-emerald-400 mb-6">
-            Tu lugar en <strong>{listing.title}</strong> ha quedado reservado del <strong>{checkIn}</strong> al <strong>{checkOut}</strong>.
+            Tu lugar en <strong>{listing.title}</strong> ha quedado reservado del <strong>{formatDateForDB(checkIn)}</strong> al <strong>{formatDateForDB(checkOut)}</strong>.
           </p>
           <button 
             onClick={onClose} 
@@ -114,12 +180,9 @@ export default function ReservationModal({ listing, onClose, onReserve, reservat
         </div>
       ) : step === 'details' ? (
 
-        /* ================================================================= */
-        /* 📍 VIEW 1: DETAILS & DYNAMIC GALLERY                              */
-        /* ================================================================= */
         <div className="max-w-6xl mx-auto px-6 py-8">
           
-          {/* Dynamic Gallery - Layout adjusts based on exact image count */}
+          {/* Gelería Dinámica */}
           {images.length === 1 ? (
             <div className="rounded-3xl overflow-hidden mb-8 h-[400px]">
               <img src={images[0]} alt={listing.title} className="w-full h-full object-cover"/>
@@ -157,7 +220,6 @@ export default function ReservationModal({ listing, onClose, onReserve, reservat
             </div>
           )}
 
-          {/* Details & Sidebar */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
             
             <div className="lg:col-span-2 space-y-8">
@@ -197,10 +259,9 @@ export default function ReservationModal({ listing, onClose, onReserve, reservat
               </div>
 
               <ReviewsSection listingId={listing.id} />
-
             </div>
 
-            {/* Right Column: Reservation Widget */}
+            {/* CUADRO DE RESERVACIÓN */}
             <div className="lg:col-span-1">
               <div className="sticky top-28 p-6 rounded-3xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xl space-y-6">
                 
@@ -214,33 +275,43 @@ export default function ReservationModal({ listing, onClose, onReserve, reservat
                   <p className="text-xs text-gray-400 mt-1">O 3x ${(total / 3).toFixed(0)} MXN sin intereses</p>
                 </div>
 
-                {/* Date Inputs */}
+                {/* CALENDARIOS NUEVOS */}
                 <div className="border border-gray-300 dark:border-gray-700 rounded-2xl overflow-hidden">
                   <div className="grid grid-cols-2 border-b border-gray-300 dark:border-gray-700">
-                    <div className="p-2.5 border-r border-gray-300 dark:border-gray-700">
-                      <label className="block text-[10px] font-black uppercase tracking-wider text-gray-500">Check-in</label>
-                      <input 
-                        type="date" 
-                        value={checkIn}
-                        min={addDays(today, 1)}
-                        onChange={(e) => setCheckIn(e.target.value)}
-                        className="w-full text-xs font-semibold bg-transparent focus:outline-none dark:text-white"
+                    
+                    <div className="p-2.5 border-r border-gray-300 dark:border-gray-700 relative">
+                      <label className="block text-[10px] font-black uppercase tracking-wider text-gray-500 mb-1">Check-in</label>
+                      <DatePicker
+                        selected={checkIn}
+                        onChange={(date) => setCheckIn(date)}
+                        selectsStart
+                        startDate={checkIn}
+                        endDate={checkOut}
+                        minDate={today}
+                        excludeDateIntervals={excludedIntervals}
+                        dateFormat="yyyy-MM-dd"
+                        className="w-full text-xs font-semibold bg-transparent focus:outline-none dark:text-white cursor-pointer"
                       />
                     </div>
-                    <div className="p-2.5">
-                      <label className="block text-[10px] font-black uppercase tracking-wider text-gray-500">Checkout</label>
-                      <input 
-                        type="date" 
-                        value={checkOut}
-                        min={addDays(checkIn, 1)}
-                        onChange={(e) => setCheckOut(e.target.value)}
-                        className="w-full text-xs font-semibold bg-transparent focus:outline-none dark:text-white"
+                    
+                    <div className="p-2.5 relative">
+                      <label className="block text-[10px] font-black uppercase tracking-wider text-gray-500 mb-1">Checkout</label>
+                      <DatePicker
+                        selected={checkOut}
+                        onChange={(date) => setCheckOut(date)}
+                        selectsEnd
+                        startDate={checkIn}
+                        endDate={checkOut}
+                        minDate={checkIn || today}
+                        excludeDateIntervals={excludedIntervals}
+                        dateFormat="yyyy-MM-dd"
+                        className="w-full text-xs font-semibold bg-transparent focus:outline-none dark:text-white cursor-pointer"
                       />
                     </div>
                   </div>
 
                   <div className="p-2.5">
-                    <label className="block text-[10px] font-black uppercase tracking-wider text-gray-500">Huéspedes</label>
+                    <label className="block text-[10px] font-black uppercase tracking-wider text-gray-500 mb-1">Huéspedes</label>
                     <select 
                       value={guests} 
                       onChange={(e) => setGuests(Number(e.target.value))}
@@ -254,7 +325,18 @@ export default function ReservationModal({ listing, onClose, onReserve, reservat
                   </div>
                 </div>
 
-                {/* 🎯 FIXED CONTRAST CARDS: Explicit high-contrast text */}
+                {/* MENSAJES DE RESTRICCIÓN */}
+                {hasReachedLimit ? (
+                  <p className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-600 dark:text-rose-400 text-xs font-medium rounded-xl">
+                    ⚠️ Has alcanzado el límite de 3 reservaciones activas. Disfruta tus viajes actuales antes de reservar de nuevo.
+                  </p>
+                ) : isBlocked ? (
+                  <p className="p-3 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400 text-xs font-medium rounded-xl">
+                    ⚠️ Estas fechas ya están ocupadas por otro huésped. Por favor, selecciona otras fechas en el calendario.
+                  </p>
+                ) : null}
+
+                {/* TARIFAS */}
                 <div className="space-y-3">
                   <p className="text-xs font-bold text-gray-500">TARIFAS</p>
 
@@ -307,21 +389,15 @@ export default function ReservationModal({ listing, onClose, onReserve, reservat
                   </label>
                 </div>
 
-                {isBlocked && (
-                  <p className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-600 dark:text-rose-400 text-xs font-medium rounded-xl">
-                    ⚠️ Estas fechas no están disponibles porque ya se encuentra reservado.
-                  </p>
-                )}
-
                 <button
                   onClick={() => {
                     if (!user) openAuth()
                     else setStep('checkout')
                   }}
-                  disabled={isBlocked}
-                  className="w-full py-3.5 bg-rose-500 hover:bg-rose-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-black text-sm rounded-2xl shadow-lg shadow-rose-500/20 transition"
+                  disabled={isBlocked || hasReachedLimit}
+                  className="w-full py-3.5 bg-rose-500 hover:bg-rose-600 disabled:bg-gray-300 disabled:dark:bg-gray-800 disabled:cursor-not-allowed text-white font-black text-sm rounded-2xl shadow-lg shadow-rose-500/20 transition"
                 >
-                  {!user ? 'Inicia sesión para reservar' : 'Reservar'}
+                  {!user ? 'Inicia sesión para reservar' : hasReachedLimit ? 'Límite alcanzado' : 'Reservar'}
                 </button>
 
                 <p className="text-center text-xs text-gray-400 font-medium">Aún no se te cobrará nada</p>
@@ -338,11 +414,11 @@ export default function ReservationModal({ listing, onClose, onReserve, reservat
         /* ================================================================= */
         <div className="max-w-5xl mx-auto px-6 py-10">
           <h1 className="text-3xl font-black text-gray-900 dark:text-gray-50 mb-8 flex items-center gap-3">
-            <button onClick={() => setStep('details')} className="hover:bg-gray-100 dark:hover:bg-gray-800 p-2 rounded-full">←</button>
+            <button type="button" onClick={() => setStep('details')} className="hover:bg-gray-100 dark:hover:bg-gray-800 p-2 rounded-full transition-colors">←</button>
             Confirmar y pagar
           </h1>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 items-start">
+          <form onSubmit={handleConfirmReservation} className="grid grid-cols-1 lg:grid-cols-3 gap-12 items-start">
             
             <div className="lg:col-span-2 space-y-8">
               
@@ -355,7 +431,7 @@ export default function ReservationModal({ listing, onClose, onReserve, reservat
                       <p className="text-sm font-bold">1 pago de ${total.toLocaleString()} MXN</p>
                       <p className="text-xs text-gray-500">Paga el total ahora y queda todo listo.</p>
                     </div>
-                    <input type="radio" name="payOption" checked={paymentOption === 'full'} onChange={() => setPaymentOption('full')} className="accent-rose-500"/>
+                    <input type="radio" name="payOption" checked={paymentOption === 'full'} onChange={() => setPaymentOption('full')} className="accent-rose-500 w-5 h-5"/>
                   </div>
                 </label>
 
@@ -365,7 +441,7 @@ export default function ReservationModal({ listing, onClose, onReserve, reservat
                       <p className="text-sm font-bold">3 pagos de ${(total / 3).toFixed(2)} MXN</p>
                       <p className="text-xs text-emerald-600 font-semibold">Sin intereses</p>
                     </div>
-                    <input type="radio" name="payOption" checked={paymentOption === 'installments'} onChange={() => setPaymentOption('installments')} className="accent-rose-500"/>
+                    <input type="radio" name="payOption" checked={paymentOption === 'installments'} onChange={() => setPaymentOption('installments')} className="accent-rose-500 w-5 h-5"/>
                   </div>
                 </label>
               </div>
@@ -373,25 +449,40 @@ export default function ReservationModal({ listing, onClose, onReserve, reservat
               <div className="p-6 rounded-3xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 space-y-4">
                 <h3 className="font-bold text-lg">2. Método de pago</h3>
 
-                <div className="space-y-3">
-                  <label className={`block p-4 rounded-2xl border cursor-pointer transition ${paymentMethod === 'card' ? 'border-gray-900 dark:border-gray-100 bg-gray-50 dark:bg-gray-850' : 'border-gray-200 dark:border-gray-800'}`}>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-bold flex items-center gap-2">💳 Tarjeta de Crédito o Débito</span>
-                      <input type="radio" name="payMethod" checked={paymentMethod === 'card'} onChange={() => setPaymentMethod('card')} className="accent-rose-500"/>
+                <div className="space-y-4">
+                  <label className={`block p-4 rounded-2xl border cursor-pointer transition-colors ${paymentMethod === 'card' ? 'border-transparent bg-gray-100 dark:bg-white ring-2 ring-rose-500 shadow-md' : 'border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900'}`}>
+                    <div className="flex items-center justify-between">
+                      <span className={`text-sm font-bold flex items-center gap-2 ${paymentMethod === 'card' ? 'text-gray-900' : 'text-gray-900 dark:text-gray-100'}`}>💳 Tarjeta de Crédito o Débito</span>
+                      <input type="radio" name="payMethod" checked={paymentMethod === 'card'} onChange={() => setPaymentMethod('card')} className="accent-rose-500 w-5 h-5"/>
                     </div>
+                    
+                    {paymentMethod === 'card' && (
+                      <div className="mt-4 space-y-3 text-gray-900">
+                        <input type="text" inputMode="numeric" value={cardNumber} onChange={handleCardNumber} placeholder="Número de tarjeta" maxLength="16" required className="w-full p-3 border border-gray-300 rounded-xl bg-white text-black focus:ring-2 focus:ring-rose-500 outline-none transition-shadow" />
+                        <div className="flex gap-4">
+                          <input type="text" inputMode="numeric" value={cardExpiry} onChange={handleExpiry} placeholder="MM/AA" maxLength="5" required className="w-1/2 p-3 border border-gray-300 rounded-xl bg-white text-black focus:ring-2 focus:ring-rose-500 outline-none transition-shadow" />
+                          <input type="text" inputMode="numeric" value={cardCvv} onChange={handleCvv} placeholder="CVV" maxLength="4" required className="w-1/2 p-3 border border-gray-300 rounded-xl bg-white text-black focus:ring-2 focus:ring-rose-500 outline-none transition-shadow" />
+                        </div>
+                      </div>
+                    )}
                   </label>
 
-                  <label className={`block p-4 rounded-2xl border cursor-pointer transition ${paymentMethod === 'paypal' ? 'border-gray-900 dark:border-gray-100 bg-gray-50 dark:bg-gray-850' : 'border-gray-200 dark:border-gray-800'}`}>
+                  <label className={`block p-4 rounded-2xl border cursor-pointer transition-colors ${paymentMethod === 'paypal' ? 'border-transparent bg-gray-100 dark:bg-white ring-2 ring-rose-500 shadow-md' : 'border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900'}`}>
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-bold flex items-center gap-2">🌐 PayPal</span>
-                      <input type="radio" name="payMethod" checked={paymentMethod === 'paypal'} onChange={() => setPaymentMethod('paypal')} className="accent-rose-500"/>
+                      <span className={`text-sm font-bold flex items-center gap-2 ${paymentMethod === 'paypal' ? 'text-gray-900' : 'text-gray-900 dark:text-gray-100'}`}>🌐 PayPal</span>
+                      <input type="radio" name="payMethod" checked={paymentMethod === 'paypal'} onChange={() => setPaymentMethod('paypal')} className="accent-rose-500 w-5 h-5"/>
                     </div>
+                    {paymentMethod === 'paypal' && (
+                      <div className="mt-4">
+                        <input type="email" placeholder="Correo de PayPal" required className="w-full p-3 border border-gray-300 rounded-xl bg-white text-black focus:ring-2 focus:ring-rose-500 outline-none transition-shadow" />
+                      </div>
+                    )}
                   </label>
                 </div>
               </div>
 
               <button
-                onClick={handleConfirmReservation}
+                type="submit"
                 disabled={loading}
                 className="w-full py-4 bg-rose-500 hover:bg-rose-600 text-white font-black text-base rounded-2xl shadow-xl shadow-rose-500/25 transition disabled:opacity-50"
               >
@@ -419,9 +510,9 @@ export default function ReservationModal({ listing, onClose, onReserve, reservat
                   <div className="flex justify-between items-center">
                     <div>
                       <p className="font-bold">Fechas</p>
-                      <p className="text-gray-500">{checkIn} al {checkOut}</p>
+                      <p className="text-gray-500">{formatDateForDB(checkIn)} al {formatDateForDB(checkOut)}</p>
                     </div>
-                    <button onClick={() => setStep('details')} className="font-bold text-rose-500 underline">Cambiar</button>
+                    <button type="button" onClick={() => setStep('details')} className="font-bold text-rose-500 underline">Cambiar</button>
                   </div>
 
                   <div className="flex justify-between items-center">
@@ -429,7 +520,7 @@ export default function ReservationModal({ listing, onClose, onReserve, reservat
                       <p className="font-bold">Huéspedes</p>
                       <p className="text-gray-500">{guests} huésped{guests > 1 ? 'es' : ''}</p>
                     </div>
-                    <button onClick={() => setStep('details')} className="font-bold text-rose-500 underline">Cambiar</button>
+                    <button type="button" onClick={() => setStep('details')} className="font-bold text-rose-500 underline">Cambiar</button>
                   </div>
                 </div>
 
@@ -456,7 +547,7 @@ export default function ReservationModal({ listing, onClose, onReserve, reservat
               </div>
             </div>
 
-          </div>
+          </form>
         </div>
 
       )}

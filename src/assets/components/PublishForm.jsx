@@ -1,8 +1,8 @@
-// src/components/PublishForm.jsx (o la ruta donde lo tengas)
+// src/components/PublishForm.jsx
 import React, { useState } from 'react'
 import { createListing } from '../../config/supabase'
 import { mexicoLocations, tiposOpc, amenidadesOpc } from '../../data/initialData'
-import LocationPicker from './LocationPicker' // <-- IMPORTANTE: Importamos el mapa
+import LocationPicker from './LocationPicker' 
 
 function Field({ label, error, children }) {
   return (
@@ -27,8 +27,8 @@ export default function PublishForm({ onPublish, onCancel, userId }) {
   const [form, setForm] = useState({
     title:"", type:"Casa", price:"", phone:"", guests:2, beds:1, baths:1,
     description:"", address:"", city:"Campeche", amenities:[],
-    latitude: null,  // <-- NUEVO: Para el mapa
-    longitude: null  // <-- NUEVO: Para el mapa
+    latitude: null,  
+    longitude: null  
   })
 
   const set = (k,v) => setForm(p => ({...p, [k]: v}))
@@ -67,7 +67,6 @@ export default function PublishForm({ onPublish, onCancel, userId }) {
     if (step===1 && (!form.title.trim() || !form.price || +form.price <= 0 || form.phone.length !== 10)) {
         e.title = "Completa todos los campos correctamente. El teléfono debe tener 10 dígitos."
     }
-    // Añadimos validación para asegurar que marquen el mapa
     if (step===2 && (!form.address.trim() || !form.latitude || !form.longitude)) {
         e.address = "Ingresa la dirección exacta y mueve el pin rojo en el mapa para marcar la ubicación."
     }
@@ -83,7 +82,7 @@ export default function PublishForm({ onPublish, onCancel, userId }) {
     setLoading(true)
 
     const newListingData = {
-      host_id: userId, // <-- Vital para que no de error la política RLS de Supabase
+      host_id: userId, 
       title: form.title, 
       type: form.type, 
       price: +form.price, 
@@ -94,8 +93,8 @@ export default function PublishForm({ onPublish, onCancel, userId }) {
       address: form.address, 
       city: form.city,
       state: selectedState, 
-      latitude: form.latitude,   // <-- Guardamos latitud real
-      longitude: form.longitude, // <-- Guardamos longitud real
+      latitude: form.latitude,   
+      longitude: form.longitude, 
       description: form.description, 
       amenities: form.amenities, 
       img: images[0],
@@ -116,6 +115,12 @@ export default function PublishForm({ onPublish, onCancel, userId }) {
     }
   }
 
+  // NUEVO: Función para escribir solo números sin flechitas
+  const handleNumberInput = (e, field) => {
+    const soloNumeros = e.target.value.replace(/[^0-9]/g, '');
+    set(field, soloNumeros ? Number(soloNumeros) : '');
+  };
+
   return (
     <div className="max-w-3xl mx-auto px-6 py-10 text-gray-900 dark:text-gray-50">
       <button onClick={onCancel} className="text-sm font-semibold text-gray-400 hover:text-gray-600 mb-6 flex items-center gap-1">← Cancelar y salir</button>
@@ -128,7 +133,6 @@ export default function PublishForm({ onPublish, onCancel, userId }) {
         <span className="text-xs font-bold bg-rose-100 text-rose-600 px-3 py-1 rounded-full">Paso {step} de 3</span>
       </div>
 
-      {/* ---------------- PASO 1 ---------------- */}
       {step===1 && (
         <div className="flex flex-col gap-5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-6 rounded-3xl shadow-sm">
           <h2 className="font-bold text-lg text-gray-800 dark:text-gray-200">1. Datos principales del alojamiento</h2>
@@ -145,49 +149,44 @@ export default function PublishForm({ onPublish, onCancel, userId }) {
             </Field>
 
             <Field label="Precio por noche (MXN) *">
-              <input type="number" min="100" value={form.price} onChange={e=>set("price",e.target.value)} placeholder="Ej. 1200" className={inputCls}/>
+              <input type="text" inputMode="numeric" value={form.price} onChange={e=>handleNumberInput(e, 'price')} placeholder="Ej. 1200" className={inputCls}/>
             </Field>
           </div>
 
-          {/* TELEFONO CON VALIDACIÓN ESTRICTA */}
           <Field label="Teléfono de contacto del anfitrión *">
             <div className="relative">
               <span className="absolute left-3 top-2.5 text-gray-400">+52</span>
               <input 
                 type="tel" 
                 maxLength="10"
-                pattern="[0-9]{10}"
                 value={form.phone} 
                 onChange={e => {
-                  // Filtra para que el usuario SOLO pueda escribir números
                   const soloNumeros = e.target.value.replace(/[^0-9]/g, '');
                   set("phone", soloNumeros);
                 }} 
-                onInvalid={e => e.target.setCustomValidity('Ingresa un número válido de 10 dígitos')}
-                onInput={e => e.target.setCustomValidity('')}
                 placeholder="Ej. 9811234567" 
-                className={`${inputCls} pl-10`} // Añadimos padding left para el +52
+                className={`${inputCls} pl-10`}
               />
             </div>
           </Field>
 
           <div className="grid grid-cols-3 gap-4 border-t border-gray-100 dark:border-gray-800 pt-4">
+            {/* INPUTS DE CAPACIDAD ACTUALIZADOS PARA NO TENER FLECHITAS */}
             <Field label="Capacidad (Huéspedes)">
-              <input type="number" min="1" max="20" value={form.guests} onChange={e=>set("guests",+e.target.value)} className={inputCls}/>
+              <input type="text" inputMode="numeric" maxLength="2" value={form.guests} onChange={e=>handleNumberInput(e, 'guests')} placeholder="Ej. 2" className={inputCls} />
             </Field>
 
             <Field label="Camas">
-              <input type="number" min="1" max="10" value={form.beds} onChange={e=>set("beds",+e.target.value)} className={inputCls}/>
+              <input type="text" inputMode="numeric" maxLength="2" value={form.beds} onChange={e=>handleNumberInput(e, 'beds')} placeholder="Ej. 1" className={inputCls} />
             </Field>
 
             <Field label="Baños">
-              <input type="number" min="1" max="10" value={form.baths} onChange={e=>set("baths",+e.target.value)} className={inputCls}/>
+              <input type="text" inputMode="numeric" maxLength="2" value={form.baths} onChange={e=>handleNumberInput(e, 'baths')} placeholder="Ej. 1" className={inputCls} />
             </Field>
           </div>
         </div>
       )}
 
-      {/* ---------------- PASO 2 ---------------- */}
       {step===2 && (
         <div className="flex flex-col gap-5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-6 rounded-3xl shadow-sm">
           <h2 className="font-bold text-lg text-gray-800 dark:text-gray-200">2. Ubicación y Amenidades</h2>
@@ -198,7 +197,6 @@ export default function PublishForm({ onPublish, onCancel, userId }) {
                 value={selectedState} 
                 onChange={e => {
                   setSelectedState(e.target.value)
-                  // Autoselecciona la primera ciudad de la lista de ese estado
                   set("city", mexicoLocations[e.target.value][0]) 
                 }} 
                 className={inputCls}
@@ -218,7 +216,6 @@ export default function PublishForm({ onPublish, onCancel, userId }) {
             <input value={form.address} onChange={e=>set("address",e.target.value)} placeholder="Ej. Calle 12 #45 por 59 y 61, Col. Centro" className={inputCls}/>
           </Field>
 
-          {/* EL MAPA DE MAPBOX */}
           <LocationPicker formData={form} setFormData={setForm} />
 
           <div className="border-t border-gray-100 dark:border-gray-800 pt-4 mt-2">
@@ -244,7 +241,6 @@ export default function PublishForm({ onPublish, onCancel, userId }) {
         </div>
       )}
 
-      {/* ---------------- PASO 3 ---------------- */}
       {step===3 && (
         <div className="flex flex-col gap-5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-6 rounded-3xl shadow-sm">
           <h2 className="font-bold text-lg text-gray-800 dark:text-gray-200">3. Galería de Fotos y Descripción</h2>
@@ -301,7 +297,6 @@ export default function PublishForm({ onPublish, onCancel, userId }) {
         </div>
       )}
 
-      {/* ---------------- BOTONES DE NAVEGACIÓN ---------------- */}
       <div className="flex justify-between mt-8">
         {step > 1 ? (
           <button onClick={() => setStep(s => s - 1)} className="px-6 py-2.5 border border-gray-300 dark:border-gray-700 rounded-xl text-sm font-bold">
