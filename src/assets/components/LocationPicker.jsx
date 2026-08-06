@@ -2,27 +2,25 @@ import { useEffect, useRef } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
-// Asignamos el token (Agregamos || '' para evitar crashes si el .env no carga a tiempo)
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN || '';
 
 export default function LocationPicker({ formData, setFormData }) {
   const mapContainer = useRef(null);
-  const map = useRef(null); // <-- Faltaba esta referencia clave
+  const map = useRef(null);
   const markerRef = useRef(null);
 
   useEffect(() => {
-    // Si el mapa ya existe, no lo volvemos a cargar
     if (map.current) return;
 
-    // Coordenadas por defecto (Centro de México)
-    const initialLng = formData.longitude || -99.1332;
-    const initialLat = formData.latitude || 19.4326;
+    // Asegurar que las coordenadas iniciales sean válidas y numéricas
+    const initialLng = parseFloat(formData.longitude) || -99.1332;
+    const initialLat = parseFloat(formData.latitude) || 19.4326;
 
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/dark-v11', // Estilo oscuro
+      style: 'mapbox://styles/mapbox/dark-v11',
       center: [initialLng, initialLat],
-      zoom: 5
+      zoom: 13 // Un zoom más cercano es mejor para seleccionar la calle
     });
 
     // Marcador arrastrable
@@ -40,7 +38,28 @@ export default function LocationPicker({ formData, setFormData }) {
       }));
     });
 
-  }, []); // <-- Dependencias vacías para evitar que el mapa parpadee y colapse
+    // PREVENIR EL BUG DEL MAPA GRIS
+    map.current.on('load', () => {
+      map.current.resize();
+    });
+    setTimeout(() => {
+      if (map.current) map.current.resize();
+    }, 200);
+
+  }, []); 
+  
+  // Opcional: Si el componente padre actualiza lat/lng de otra forma, 
+  // que el pin se mueva automáticamente.
+  useEffect(() => {
+    if (markerRef.current && map.current && formData.longitude && formData.latitude) {
+        const lng = parseFloat(formData.longitude);
+        const lat = parseFloat(formData.latitude);
+        if (!isNaN(lng) && !isNaN(lat)) {
+            markerRef.current.setLngLat([lng, lat]);
+            map.current.setCenter([lng, lat]);
+        }
+    }
+  }, [formData.longitude, formData.latitude]);
 
   return (
     <div className="mt-4">

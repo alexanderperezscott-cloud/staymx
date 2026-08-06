@@ -2,91 +2,87 @@ import React, { useEffect, useRef } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
-mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN;
+mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN || '';
 
 export default function PropertyMap({ properties = [] }) {
   const mapContainer = useRef(null);
   const map = useRef(null);
+  const markersRef = useRef([]); // Guardar referencia de los pines
 
   useEffect(() => {
-    if (map.current || !mapContainer.current) return;
+    if (map.current) return;
 
-    // 1. Validar coordenadas estrictamente (Si fallan, carga CDMX por defecto)
-    const firstProp = properties.length > 0 ? properties[0] : null;
-    let lat = 19.4326; 
-    let lng = -99.1332; 
-
-    if (firstProp && firstProp.latitude && firstProp.longitude) {
-      const parsedLat = parseFloat(firstProp.latitude);
-      const parsedLng = parseFloat(firstProp.longitude);
-      // Solo usamos las coordenadas si son números reales válidos
-      if (!isNaN(parsedLat) && !isNaN(parsedLng)) {
-        lat = parsedLat;
-        lng = parsedLng;
-      }
-    }
-
-    // 2. Inicializar mapa
+    // Iniciar el mapa (el centro inicial no importa tanto porque lo moveremos abajo)
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
       style: 'mapbox://styles/mapbox/streets-v12',
-      center: [lng, lat],
-      zoom: 13, 
+      center: [-99.1332, 19.4326], 
+      zoom: 14,
     });
 
     map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
-    // 3. Forzar redibujado cuando el mapa termine de cargar sus estilos
+    // SOLUCIÓN AL MAPA GRIS/BLANCO: Forzar al mapa a recalcular su tamaño
     map.current.on('load', () => {
       map.current.resize();
     });
+    
+    // Respaldo de seguridad por si tarda en renderizar la tarjeta
+    setTimeout(() => {
+      if (map.current) map.current.resize();
+    }, 200);
 
-    // 4. Observar cambios en el tamaño del contenedor (Soluciona el mapa en blanco)
-    const resizeObserver = new ResizeObserver(() => {
-      map.current?.resize();
-    });
-    resizeObserver.observe(mapContainer.current);
+  }, []);
 
-    // 5. Seguros de tiempo extra para animaciones de React
-    setTimeout(() => map.current?.resize(), 300);
-    setTimeout(() => map.current?.resize(), 800);
-
-    return () => {
-      resizeObserver.disconnect();
-      map.current?.remove();
-      map.current = null;
-    };
-  }, [properties]);
-
-  // Efecto para renderizar el PIN rojo
+  // Agregar marcadores y CENTRAR LA CÁMARA
   useEffect(() => {
-    if (!map.current) return;
+    if (!map.current || !properties.length) return;
 
-    const currentMarkers = document.querySelectorAll('.mapboxgl-marker');
-    currentMarkers.forEach(marker => marker.remove());
+    // Limpiar marcadores viejos (por si la lista cambia)
+    markersRef.current.forEach(marker => marker.remove());
+    markersRef.current = [];
+
+    const bounds = new mapboxgl.LngLatBounds();
+    let hasValidCoords = false;
 
     properties.forEach((prop) => {
-      const lat = parseFloat(prop.latitude);
+      // SOLUCIÓN AL PIN PERDIDO: Convertir a número por si vienen como string de la BD
       const lng = parseFloat(prop.longitude);
+      const lat = parseFloat(prop.latitude);
 
-      if (!isNaN(lat) && !isNaN(lng)) {
-        const popup = new mapboxgl.Popup({ offset: 25, closeButton: false }).setHTML(
-          `<div class="p-2 font-sans">
-            <h4 class="font-bold text-sm m-0">${prop.title || 'Alojamiento'}</h4>
-            <p class="text-gray-600 text-xs m-0 mt-1">$${prop.price || prop.price_per_night || 0} MXN / noche</p>
-          </div>`
-        );
-
-        new mapboxgl.Marker({ color: '#FF385C' })
+      if (!isNaN(lng) && !isNaN(lat)) {
+        hasValidCoords = true;
+        
+        const marker = new mapboxgl.Marker({ color: '#FF385C' })
           .setLngLat([lng, lat])
-          .setPopup(popup)
+          .setPopup(
+            new mapboxgl.Popup({ offset: 25 }).setHTML(
+              `<div style="font-family: sans-serif;">
+                <h4 style="margin:0; font-weight:bold;">${prop.title || 'Alojamiento'}</h4>
+                ${prop.price_per_night ? `<p style="margin:4px 0 0;">$${prop.price_per_night} MXN / noche</p>` : ''}
+              </div>`
+            )
+          )
           .addTo(map.current);
+        
+        markersRef.current.push(marker);
+        bounds.extend([lng, lat]); // Expandir los límites para incluir este pin
       }
     });
+
+    // MOVER LA CÁMARA HACIA EL PIN
+    if (hasValidCoords) {
+      if (properties.length === 1) {
+        // Si es una sola casa, volar directo con buen zoom
+        const lng = parseFloat(properties[0].longitude);
+        const lat = parseFloat(properties[0].latitude);
+        map.current.flyTo({ center: [lng, lat], zoom: 14, essential: true });
+      } else {
+        // Si son varias casas, alejar la cámara para que se vean todas
+        map.current.fitBounds(bounds, { padding: 50, maxZoom: 15 });
+      }
+    }
   }, [properties]);
 
-  return (
-    // CAMBIO IMPORTANTE: Agregamos min-h-[200px] para forzar que la caja exista
-    <div ref={mapContainer} className="w-full h-full min-h-[200px] rounded-xl bg-gray-100 dark:bg-gray-800" />
-  );
+  return <div ref={mapContainer} className="w-full h-[400px] rounded-2xl overflow-hidden shadow-lg" />;
 }

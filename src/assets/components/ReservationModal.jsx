@@ -1,5 +1,5 @@
 // src/assets/components/ReservationModal.jsx
-import React, { useState, useMemo, useEffect } from 'react' // Agregado useEffect
+import React, { useState, useMemo, useEffect } from 'react'
 import { createReservationWithPayment } from '../../config/supabase'
 import ReviewsSection from './ReviewsSection' 
 import DatePicker from 'react-datepicker'
@@ -53,7 +53,11 @@ export default function ReservationModal({ listing, onClose, onReserve, reservat
   // Fechas ahora son Objetos Date para react-datepicker
   const [checkIn, setCheckIn] = useState(getTomorrow())
   const [checkOut, setCheckOut] = useState(getNextWeek())
-  const [guests, setGuests] = useState(1) // Se mantiene el estado, pero la UI ya no dejará cambiarlo
+  
+  // STAYMX CHANGE: Eliminamos el useState(1) para que no se quede trabado en 1.
+  // Ahora lee directamente la cantidad máxima que pusiste en la base de datos (Modo Anfitrión).
+  const guests = listing.guests || 1; 
+
   const [rateType, setRateType] = useState('non_refundable') 
   const [paymentOption, setPaymentOption] = useState('full')
   const [paymentMethod, setPaymentMethod] = useState('card')
@@ -156,7 +160,7 @@ export default function ReservationModal({ listing, onClose, onReserve, reservat
       listingId: listing.id,
       checkIn: formatDateForDB(checkIn),
       checkOut: formatDateForDB(checkOut),
-      guests,
+      guests, // Envía el número configurado por el anfitrión
       total,
       paymentMethod
     })
@@ -358,7 +362,7 @@ export default function ReservationModal({ listing, onClose, onReserve, reservat
 
                       <div className="p-2.5 relative">
                         <label className="block text-[10px] font-black uppercase tracking-wider text-gray-500 mb-1">Huéspedes</label>
-                        {/* CAMBIO: Se removió el <select>, ahora es texto de solo lectura */}
+                        {/* CAMBIO: Se removió el <select>, ahora es texto de solo lectura dinámico */}
                         <div className="w-full text-xs font-semibold text-gray-900 dark:text-white py-1">
                           {guests} huésped{guests > 1 ? 'es' : ''}
                         </div>
@@ -405,7 +409,7 @@ export default function ReservationModal({ listing, onClose, onReserve, reservat
                       </label>
 
                       <label className={`block p-4 rounded-2xl border transition ${
-                        isLessThan24Hours ? 'opacity-50 cursor-not-allowed bg-gray-100 dark:bg-gray-900 border-gray-200 dark:border-gray-800' // Estilos de deshabilitado
+                        isLessThan24Hours ? 'opacity-50 cursor-not-allowed bg-gray-100 dark:bg-gray-900 border-gray-200 dark:border-gray-800' 
                         : rateType === 'refundable' 
                           ? 'cursor-pointer border-rose-500 bg-white text-gray-900 dark:bg-gray-800 dark:text-white ring-2 ring-rose-500/20' 
                           : 'cursor-pointer border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200'
