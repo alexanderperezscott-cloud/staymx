@@ -85,7 +85,7 @@ export default function ReviewsSection({ listingId }) {
 
       {/* Formulario (Solo visible si el usuario es elegible) */}
       {isEligible && (
-        <form onSubmit={handleSubmit} className="mb-10 bg-gray-50 dark:bg-gray-900 p-6 rounded-2xl border border-gray-100 dark:border-gray-800">
+        <form id="reviews-section-form" onSubmit={handleSubmit} className="mb-10 bg-gray-50 dark:bg-gray-900 p-6 rounded-2xl border border-gray-100 dark:border-gray-800">
           <h4 className="font-bold mb-3 text-gray-900 dark:text-white">Califica tu estancia</h4>
           
           <div className="flex gap-1 mb-4">

@@ -1,5 +1,5 @@
 // src/assets/components/ReservationModal.jsx
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react' // Agregado useEffect
 import { createReservationWithPayment } from '../../config/supabase'
 import ReviewsSection from './ReviewsSection' 
 import DatePicker from 'react-datepicker'
@@ -53,7 +53,7 @@ export default function ReservationModal({ listing, onClose, onReserve, reservat
   // Fechas ahora son Objetos Date para react-datepicker
   const [checkIn, setCheckIn] = useState(getTomorrow())
   const [checkOut, setCheckOut] = useState(getNextWeek())
-  const [guests, setGuests] = useState(1)
+  const [guests, setGuests] = useState(1) // Se mantiene el estado, pero la UI ya no dejará cambiarlo
   const [rateType, setRateType] = useState('non_refundable') 
   const [paymentOption, setPaymentOption] = useState('full')
   const [paymentMethod, setPaymentMethod] = useState('card')
@@ -104,6 +104,28 @@ export default function ReservationModal({ listing, onClose, onReserve, reservat
   // --- LÍMITE DE RESERVACIONES ---
   const hasReachedLimit = activeReservationsCount >= 3;
 
+  // NUEVO: Verificar si la reserva es para dentro de menos de 1 día (24 hrs)
+  const isLessThan24Hours = useMemo(() => {
+    if (!checkIn) return false;
+    const timeDiff = checkIn.getTime() - today.getTime();
+    return timeDiff <= (1000 * 3600 * 24);
+  }, [checkIn]);
+
+  // NUEVO: Forzar tarifa no reembolsable si falta menos de 1 día
+  useEffect(() => {
+    if (isLessThan24Hours && rateType === 'refundable') {
+      setRateType('non_refundable');
+    }
+  }, [isLessThan24Hours, rateType]);
+
+  // NUEVO: Lógica para saber si el alojamiento ya "expiró" para este usuario y solo puede reseñar
+  const canOnlyReview = useMemo(() => {
+    if (!user || !reservations) return false;
+    // Aquí puedes conectar esto a tu backend que verifica si ya se hospedó y no ha comentado.
+    // Retorna true si quieres que el panel de reserva desaparezca y solo pida reseña.
+    return false; // Cambia esto por tu lógica real de base de datos
+  }, [user, reservations]);
+
   // Precios
   const pricePerNight = Number(listing.price || listing.price_per_night || 0);
   const { nights, basePrice, discount, taxes, total } = useReservationPricing(checkIn, checkOut, pricePerNight, rateType);
@@ -119,7 +141,7 @@ export default function ReservationModal({ listing, onClose, onReserve, reservat
       return
     }
 
-    if (isBlocked || hasReachedLimit) return
+    if (isBlocked || hasReachedLimit || canOnlyReview) return // Bloqueamos si solo puede reseñar
 
     const cleanPhone = sanitizePhone(cardNumber)
     const cleanCvv = sanitizeText(cardCvv, 4)
@@ -261,151 +283,174 @@ export default function ReservationModal({ listing, onClose, onReserve, reservat
               <ReviewsSection listingId={listing.id} />
             </div>
 
-            {/* CUADRO DE RESERVACIÓN */}
+            {/* CUADRO DE RESERVACIÓN / RESEÑA */}
             <div className="lg:col-span-1">
               <div className="sticky top-28 p-6 rounded-3xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xl space-y-6">
                 
-                <div>
-                  <div className="flex items-baseline justify-between">
-                    <span className="text-2xl font-black text-gray-900 dark:text-gray-50">
-                      ${total.toLocaleString()} MXN
-                    </span>
-                    <span className="text-xs text-gray-500 font-semibold">total</span>
-                  </div>
-                  <p className="text-xs text-gray-400 mt-1">O 3x ${(total / 3).toFixed(0)} MXN sin intereses</p>
-                </div>
-
-                {/* CALENDARIOS NUEVOS */}
-                {/* CAMBIO: Se eliminó overflow-hidden de este div para que el calendario no se corte */}
-                <div className="border border-gray-300 dark:border-gray-700 rounded-2xl">
-                  <div className="grid grid-cols-2 border-b border-gray-300 dark:border-gray-700">
-                    
-                    <div className="p-2.5 border-r border-gray-300 dark:border-gray-700 relative">
-                      <label className="block text-[10px] font-black uppercase tracking-wider text-gray-500 mb-1">Check-in</label>
-                      <DatePicker
-                        selected={checkIn}
-                        onChange={(date) => setCheckIn(date)}
-                        selectsStart
-                        startDate={checkIn}
-                        endDate={checkOut}
-                        minDate={today}
-                        excludeDateIntervals={excludedIntervals}
-                        dateFormat="yyyy-MM-dd"
-                        wrapperClassName="w-full"
-                        className="w-full min-w-0 text-xs font-semibold bg-transparent focus:outline-none dark:text-white cursor-pointer"
-                        popperClassName="z-[100]" /* CAMBIO: Hace que el calendario flote por encima de todo */
-                      />
-                    </div>
-                    
-                    <div className="p-2.5 relative">
-                      <label className="block text-[10px] font-black uppercase tracking-wider text-gray-500 mb-1">Checkout</label>
-                      <DatePicker
-                        selected={checkOut}
-                        onChange={(date) => setCheckOut(date)}
-                        selectsEnd
-                        startDate={checkIn}
-                        endDate={checkOut}
-                        minDate={checkIn || today}
-                        excludeDateIntervals={excludedIntervals}
-                        dateFormat="yyyy-MM-dd"
-                        wrapperClassName="w-full"
-                        className="w-full min-w-0 text-xs font-semibold bg-transparent focus:outline-none dark:text-white cursor-pointer"
-                        popperClassName="z-[100]" /* CAMBIO: Hace que el calendario flote por encima de todo */
-                      />
-                    </div>
-                  </div>
-
-                  <div className="p-2.5">
-                    <label className="block text-[10px] font-black uppercase tracking-wider text-gray-500 mb-1">Huéspedes</label>
-                    <select 
-                      value={guests} 
-                      onChange={(e) => setGuests(Number(e.target.value))}
-                      className="w-full text-xs font-semibold bg-transparent focus:outline-none dark:text-white cursor-pointer"
+                {/* Lógica: Si el usuario solo puede reseñar (expirado), ocultamos el formulario de reserva */}
+                {canOnlyReview ? (
+                  <div className="space-y-4 text-center py-4">
+                    <p className="text-5xl mb-2">⭐</p>
+                    <h3 className="text-xl font-black text-gray-900 dark:text-white">Alojamiento finalizado</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+                      Ya has completado tu estancia en este lugar. ¿Te gustaría dejar una reseña para compartir tu experiencia?
+                    </p>
+                    <button 
+                      onClick={() => {
+                        // Desplazar suavemente a la sección de reseñas (requiere id en ReviewsSection)
+                        document.querySelector('#reviews-section-form')?.scrollIntoView({ behavior: 'smooth' });
+                      }}
+                      className="w-full py-3.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-6 py-2.5 rounded-xl font-bold text-sm hover:opacity-90 transition"
                     >
-                      <option value={1} className="dark:bg-gray-900">1 huésped</option>
-                      <option value={2} className="dark:bg-gray-900">2 huéspedes</option>
-                      <option value={3} className="dark:bg-gray-900">3 huéspedes</option>
-                      <option value={4} className="dark:bg-gray-900">4 huéspedes</option>
-                    </select>
+                      Danos tu opinión ★
+                    </button>
+                    <p className="text-center text-xs text-gray-400 font-medium">Solo puedes dejar una reseña por estancia</p>
                   </div>
-                </div>
-
-                {/* MENSAJES DE RESTRICCIÓN */}
-                {hasReachedLimit ? (
-                  <p className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-600 dark:text-rose-400 text-xs font-medium rounded-xl">
-                    ⚠️ Has alcanzado el límite de 3 reservaciones activas. Disfruta tus viajes actuales antes de reservar de nuevo.
-                  </p>
-                ) : isBlocked ? (
-                  <p className="p-3 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400 text-xs font-medium rounded-xl">
-                    ⚠️ Estas fechas ya están ocupadas por otro huésped. Por favor, selecciona otras fechas en el calendario.
-                  </p>
-                ) : null}
-
-                {/* TARIFAS */}
-                <div className="space-y-3">
-                  <p className="text-xs font-bold text-gray-500">TARIFAS</p>
-
-                  <label className={`block p-4 rounded-2xl border cursor-pointer transition ${
-                    rateType === 'non_refundable' 
-                      ? 'border-rose-500 bg-white text-gray-900 dark:bg-gray-800 dark:text-white ring-2 ring-rose-500/20' 
-                      : 'border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200'
-                  }`}>
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <p className="text-xs font-bold text-gray-900 dark:text-white">
-                          No reembolsable · <span className="font-extrabold text-rose-500">${total.toLocaleString()} MXN</span>
-                        </p>
-                        <p className="text-[11px] text-gray-600 dark:text-gray-300 mt-1 leading-snug">
-                          Cancelación gratuita durante 24 horas. Después no es reembolsable.
-                        </p>
+                ) : (
+                  <>
+                    <div>
+                      <div className="flex items-baseline justify-between">
+                        <span className="text-2xl font-black text-gray-900 dark:text-gray-50">
+                          ${total.toLocaleString()} MXN
+                        </span>
+                        <span className="text-xs text-gray-500 font-semibold">total</span>
                       </div>
-                      <input 
-                        type="radio" 
-                        name="rateType" 
-                        checked={rateType === 'non_refundable'} 
-                        onChange={() => setRateType('non_refundable')}
-                        className="mt-1 accent-rose-500 h-4 w-4 shrink-0"
-                      />
+                      <p className="text-xs text-gray-400 mt-1">O 3x ${(total / 3).toFixed(0)} MXN sin intereses</p>
                     </div>
-                  </label>
 
-                  <label className={`block p-4 rounded-2xl border cursor-pointer transition ${
-                    rateType === 'refundable' 
-                      ? 'border-rose-500 bg-white text-gray-900 dark:bg-gray-800 dark:text-white ring-2 ring-rose-500/20' 
-                      : 'border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200'
-                  }`}>
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <p className="text-xs font-bold text-gray-900 dark:text-white">
-                          Reembolsable · <span className="font-extrabold text-rose-500">${total.toLocaleString()} MXN</span>
-                        </p>
-                        <p className="text-[11px] text-gray-600 dark:text-gray-300 mt-1 leading-snug">
-                          Cancelación flexible hasta 1 día antes del Check-in.
-                        </p>
+                    <div className="border border-gray-300 dark:border-gray-700 rounded-2xl">
+                      <div className="grid grid-cols-2 border-b border-gray-300 dark:border-gray-700">
+                        
+                        <div className="p-2.5 border-r border-gray-300 dark:border-gray-700 relative">
+                          <label className="block text-[10px] font-black uppercase tracking-wider text-gray-500 mb-1">Check-in</label>
+                          <DatePicker
+                            selected={checkIn}
+                            onChange={(date) => setCheckIn(date)}
+                            selectsStart
+                            startDate={checkIn}
+                            endDate={checkOut}
+                            minDate={today}
+                            excludeDateIntervals={excludedIntervals}
+                            dateFormat="yyyy-MM-dd"
+                            wrapperClassName="w-full"
+                            className="w-full min-w-0 text-xs font-semibold bg-transparent focus:outline-none dark:text-white cursor-pointer"
+                            popperClassName="z-[100]" 
+                          />
+                        </div>
+                        
+                        <div className="p-2.5 relative">
+                          <label className="block text-[10px] font-black uppercase tracking-wider text-gray-500 mb-1">Checkout</label>
+                          <DatePicker
+                            selected={checkOut}
+                            onChange={(date) => setCheckOut(date)}
+                            selectsEnd
+                            startDate={checkIn}
+                            endDate={checkOut}
+                            minDate={checkIn || today}
+                            excludeDateIntervals={excludedIntervals}
+                            dateFormat="yyyy-MM-dd"
+                            wrapperClassName="w-full"
+                            className="w-full min-w-0 text-xs font-semibold bg-transparent focus:outline-none dark:text-white cursor-pointer"
+                            popperClassName="z-[100]"
+                          />
+                        </div>
                       </div>
-                      <input 
-                        type="radio" 
-                        name="rateType" 
-                        checked={rateType === 'refundable'} 
-                        onChange={() => setRateType('refundable')}
-                        className="mt-1 accent-rose-500 h-4 w-4 shrink-0"
-                      />
+
+                      <div className="p-2.5 relative">
+                        <label className="block text-[10px] font-black uppercase tracking-wider text-gray-500 mb-1">Huéspedes</label>
+                        {/* CAMBIO: Se removió el <select>, ahora es texto de solo lectura */}
+                        <div className="w-full text-xs font-semibold text-gray-900 dark:text-white py-1">
+                          {guests} huésped{guests > 1 ? 'es' : ''}
+                        </div>
+                      </div>
                     </div>
-                  </label>
-                </div>
 
-                <button
-                  onClick={() => {
-                    if (!user) openAuth()
-                    else setStep('checkout')
-                  }}
-                  disabled={isBlocked || hasReachedLimit}
-                  className="w-full py-3.5 bg-rose-500 hover:bg-rose-600 disabled:bg-gray-300 disabled:dark:bg-gray-800 disabled:cursor-not-allowed text-white font-black text-sm rounded-2xl shadow-lg shadow-rose-500/20 transition"
-                >
-                  {!user ? 'Inicia sesión para reservar' : hasReachedLimit ? 'Límite alcanzado' : 'Reservar'}
-                </button>
+                    {/* MENSAJES DE RESTRICCIÓN */}
+                    {hasReachedLimit ? (
+                      <p className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-600 dark:text-rose-400 text-xs font-medium rounded-xl">
+                        ⚠️ Has alcanzado el límite de 3 reservaciones activas. Disfruta tus viajes actuales antes de reservar de nuevo.
+                      </p>
+                    ) : isBlocked ? (
+                      <p className="p-3 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400 text-xs font-medium rounded-xl">
+                        ⚠️ Estas fechas ya están ocupadas por otro huésped. Por favor, selecciona otras fechas en el calendario.
+                      </p>
+                    ) : null}
 
-                <p className="text-center text-xs text-gray-400 font-medium">Aún no se te cobrará nada</p>
+                    {/* TARIFAS */}
+                    <div className="space-y-3">
+                      <p className="text-xs font-bold text-gray-500">TARIFAS</p>
+
+                      <label className={`block p-4 rounded-2xl border cursor-pointer transition ${
+                        rateType === 'non_refundable' 
+                          ? 'border-rose-500 bg-white text-gray-900 dark:bg-gray-800 dark:text-white ring-2 ring-rose-500/20' 
+                          : 'border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200'
+                      }`}>
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="text-xs font-bold text-gray-900 dark:text-white">
+                              No reembolsable · <span className="font-extrabold text-rose-500">${total.toLocaleString()} MXN</span>
+                            </p>
+                            <p className="text-[11px] text-gray-600 dark:text-gray-300 mt-1 leading-snug">
+                              Cancelación gratuita durante 24 horas. Después no es reembolsable.
+                            </p>
+                          </div>
+                          <input 
+                            type="radio" 
+                            name="rateType" 
+                            checked={rateType === 'non_refundable'} 
+                            onChange={() => setRateType('non_refundable')}
+                            className="mt-1 accent-rose-500 h-4 w-4 shrink-0"
+                          />
+                        </div>
+                      </label>
+
+                      <label className={`block p-4 rounded-2xl border transition ${
+                        isLessThan24Hours ? 'opacity-50 cursor-not-allowed bg-gray-100 dark:bg-gray-900 border-gray-200 dark:border-gray-800' // Estilos de deshabilitado
+                        : rateType === 'refundable' 
+                          ? 'cursor-pointer border-rose-500 bg-white text-gray-900 dark:bg-gray-800 dark:text-white ring-2 ring-rose-500/20' 
+                          : 'cursor-pointer border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200'
+                      }`}>
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="text-xs font-bold text-gray-900 dark:text-white flex items-center gap-1">
+                              Reembolsable · <span className="font-extrabold text-rose-500">${total.toLocaleString()} MXN</span>
+                            </p>
+                            <p className="text-[11px] text-gray-600 dark:text-gray-300 mt-1 leading-snug">
+                              Cancelación flexible hasta 1 día antes del Check-in.
+                            </p>
+                            {/* Mensaje de restricción de menos de 1 día */}
+                            {isLessThan24Hours && (
+                              <p className="text-[10px] text-rose-500 font-bold mt-1">
+                                No disponible: La reserva es en menos de 24 hrs.
+                              </p>
+                            )}
+                          </div>
+                          <input 
+                            type="radio" 
+                            name="rateType" 
+                            disabled={isLessThan24Hours} // Bloquear input
+                            checked={rateType === 'refundable'} 
+                            onChange={() => setRateType('refundable')}
+                            className="mt-1 accent-rose-500 h-4 w-4 shrink-0 cursor-pointer disabled:cursor-not-allowed"
+                          />
+                        </div>
+                      </label>
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        if (!user) openAuth()
+                        else setStep('checkout')
+                      }}
+                      disabled={isBlocked || hasReachedLimit}
+                      className="w-full py-3.5 bg-rose-500 hover:bg-rose-600 disabled:bg-gray-300 disabled:dark:bg-gray-800 disabled:cursor-not-allowed text-white font-black text-sm rounded-2xl shadow-lg shadow-rose-500/20 transition"
+                    >
+                      {!user ? 'Inicia sesión para reservar' : hasReachedLimit ? 'Límite alcanzado' : 'Reservar'}
+                    </button>
+
+                    <p className="text-center text-xs text-gray-400 font-medium">Aún no se te cobrará nada</p>
+                  </>
+                )}
               </div>
             </div>
 
