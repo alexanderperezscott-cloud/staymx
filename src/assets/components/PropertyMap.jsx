@@ -84,5 +84,6 @@ export default function PropertyMap({ properties = [] }) {
     }
   }, [properties]);
 
-  return <div ref={mapContainer} className="w-full h-[400px] rounded-2xl overflow-hidden shadow-lg" />;
+  // AJUSTE APLICADO: h-48 para reducir la altura y rounded-xl shadow-inner para integrarlo al diseño
+  return <div ref={mapContainer} className="w-full h-48 rounded-xl overflow-hidden shadow-inner" />;
 }
