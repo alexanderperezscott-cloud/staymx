@@ -250,6 +250,21 @@ export default function ReservationModal({ listing, onClose, onReserve, reservat
             
             <div className="lg:col-span-2 space-y-8">
               <div>
+                
+                {/* --- NUEVO MARCADOR DE LÍMITE DE ALOJAMIENTOS --- */}
+                {user && (
+                  <div className={`mb-4 inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-black border ${
+                    hasReachedLimit 
+                      ? 'bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-950/50 dark:text-rose-400 dark:border-rose-900' 
+                      : 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-400 dark:border-emerald-900'
+                  }`}>
+                    <span>{hasReachedLimit ? '⚠️' : '✅'}</span>
+                    <span>Alojamientos en curso: {activeReservationsCount} / 3</span>
+                    {hasReachedLimit && <span className="ml-2 border-l border-rose-300 dark:border-rose-700 pl-2">Límite alcanzado</span>}
+                  </div>
+                )}
+                {/* ----------------------------------------------- */}
+
                 <h1 className="text-2xl md:text-3xl font-black text-gray-900 dark:text-gray-50 mb-2">
                   {listing.title}
                 </h1>
@@ -479,25 +494,44 @@ export default function ReservationModal({ listing, onClose, onReserve, reservat
               <div className="p-6 rounded-3xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 space-y-4">
                 <h3 className="font-bold text-lg">1. Elige cómo pagar</h3>
 
-                <label className={`block p-4 rounded-2xl border cursor-pointer transition ${paymentOption === 'full' ? 'border-gray-900 dark:border-gray-100 bg-gray-50 dark:bg-gray-850' : 'border-gray-200 dark:border-gray-800'}`}>
+                {/* --- AQUI SE ARREGLAN LOS COLORES DE LAS OPCIONES DE PAGO --- */}
+                <label className={`block p-4 rounded-2xl border cursor-pointer transition-colors ${
+                  paymentOption === 'full' 
+                    ? 'border-transparent bg-white shadow-md ring-2 ring-rose-500' // Blanco puro al seleccionar
+                    : 'border-gray-200 dark:border-gray-700 bg-transparent hover:bg-gray-50 dark:hover:bg-gray-800'
+                }`}>
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-bold">1 pago de ${total.toLocaleString()} MXN</p>
-                      <p className="text-xs text-gray-500">Paga el total ahora y queda todo listo.</p>
+                      <p className={`text-sm font-bold ${paymentOption === 'full' ? 'text-gray-900' : 'text-gray-900 dark:text-gray-100'}`}>
+                        1 pago de ${total.toLocaleString()} MXN
+                      </p>
+                      <p className={`text-xs mt-0.5 ${paymentOption === 'full' ? 'text-gray-600' : 'text-gray-500 dark:text-gray-400'}`}>
+                        Paga el total ahora y queda todo listo.
+                      </p>
                     </div>
                     <input type="radio" name="payOption" checked={paymentOption === 'full'} onChange={() => setPaymentOption('full')} className="accent-rose-500 w-5 h-5"/>
                   </div>
                 </label>
 
-                <label className={`block p-4 rounded-2xl border cursor-pointer transition ${paymentOption === 'installments' ? 'border-gray-900 dark:border-gray-100 bg-gray-50 dark:bg-gray-850' : 'border-gray-200 dark:border-gray-800'}`}>
+                <label className={`block p-4 rounded-2xl border cursor-pointer transition-colors ${
+                  paymentOption === 'installments' 
+                    ? 'border-transparent bg-white shadow-md ring-2 ring-rose-500' // Blanco puro al seleccionar
+                    : 'border-gray-200 dark:border-gray-700 bg-transparent hover:bg-gray-50 dark:hover:bg-gray-800'
+                }`}>
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-bold">3 pagos de ${(total / 3).toFixed(2)} MXN</p>
-                      <p className="text-xs text-emerald-600 font-semibold">Sin intereses</p>
+                      <p className={`text-sm font-bold ${paymentOption === 'installments' ? 'text-gray-900' : 'text-gray-900 dark:text-gray-100'}`}>
+                        3 pagos de ${(total / 3).toFixed(2)} MXN
+                      </p>
+                      <p className={`text-xs mt-0.5 font-semibold ${paymentOption === 'installments' ? 'text-emerald-600' : 'text-emerald-500'}`}>
+                        Sin intereses
+                      </p>
                     </div>
                     <input type="radio" name="payOption" checked={paymentOption === 'installments'} onChange={() => setPaymentOption('installments')} className="accent-rose-500 w-5 h-5"/>
                   </div>
                 </label>
+                {/* ------------------------------------------------------------- */}
+
               </div>
 
               <div className="p-6 rounded-3xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 space-y-4">
