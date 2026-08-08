@@ -10,6 +10,8 @@ import HostModeWrapper from './assets/components/HostModeWrapper.jsx'
 import PropertyMap from './assets/components/PropertyMap.jsx' 
 import Footer from './assets/components/Footer.jsx'
 import toast, { Toaster } from 'react-hot-toast'
+import HostDashboard from './assets/components/HostDashboard.jsx'
+import TermsModal from './assets/components/TermsModal.jsx'
 
 import { 
   supabase, 
@@ -46,12 +48,24 @@ export default function App() {
   const [maxPrice, setMaxPrice] = useState(15000)
   const [propertyType, setPropertyType] = useState('all')
 
+  // Estado para controlar el Pop-up de cancelación
+  const [reservationToCancel, setReservationToCancel] = useState(null)
+
+  // Estado para mostrar los términos y condiciones
+  const [showTerms, setShowTerms] = useState(false)
+
   useEffect(() => {
     async function handleUserSession(session) {
       const u = session?.user ?? null
       setUser(u)
 
       if (u) {
+        // Verificar si ya aceptó los términos en este dispositivo
+        const hasAcceptedTerms = localStorage.getItem(`staymx_terms_accepted_${u.id}`)
+        if (!hasAcceptedTerms) {
+          setShowTerms(true)
+        }
+
         let { data } = await getUserProfile(u.id)
 
         if (!data) {
@@ -160,9 +174,23 @@ export default function App() {
     fetchRes()
   }, [])
 
-  const handleCancelReservation = async (reservationId) => {
-    if (!window.confirm("¿Estás seguro de que deseas cancelar esta reservación?")) return
-    const { error } = await cancelReservation(reservationId)
+  // Lógica estricta de tiempo de cancelación (1 Día antes)
+  const canCancelReservation = (checkInStr) => {
+    if (!checkInStr) return false;
+    const checkInDate = new Date(`${checkInStr}T00:00:00`); 
+    const deadline = new Date(checkInDate.getTime());
+    deadline.setDate(deadline.getDate() - 1); 
+    
+    return new Date() < deadline; 
+  };
+
+  const confirmCancelReservation = async () => {
+    if (!reservationToCancel) return;
+
+    const idToCancel = reservationToCancel;
+    setReservationToCancel(null);
+
+    const { error } = await cancelReservation(idToCancel)
     if (error) {
       toast.error("Error al cancelar: " + error.message)
     } else {
@@ -183,7 +211,6 @@ export default function App() {
       try {
         await toggleFavorite(id, isCurrentlySaved)
         toast.success(isCurrentlySaved ? 'Eliminado de favoritos' : 'Guardado en favoritos', {
-          icon: isCurrentlySaved ? '💔' : '❤️',
           style: { borderRadius: '10px', background: isDarkMode ? '#1F2937' : '#fff', color: isDarkMode ? '#fff' : '#333' }
         })
       } catch (error) {
@@ -191,7 +218,7 @@ export default function App() {
         setSavedIds(savedIds)
       }
     } else {
-      toast('Inicia sesión para guardarlo en todos tus dispositivos', { icon: '💡' })
+      toast('Inicia sesión para guardarlo en todos tus dispositivos')
     }
   }
 
@@ -208,14 +235,30 @@ export default function App() {
 
   const handleSignOut = async () => {
     await signOutUser();
-    if (page === "reservations" || page === "publish" || page === "admin") {
+    if (page === "reservations" || page === "publish" || page === "admin" || page === "dashboard") {
       setPage("home");
     }
   };
 
+  // Funciones para manejar la aceptación de términos
+  const handleAcceptTerms = () => {
+    localStorage.setItem(`staymx_terms_accepted_${user.id}`, 'true')
+    setShowTerms(false)
+  }
+
+  const handleDeclineTerms = () => {
+    handleSignOut()
+    setShowTerms(false)
+  }
+
   const savedListings = listings.filter(l => savedIds.includes(l.id))
   const userActiveReservations = reservations.filter(r => user && r.guest_id === user.id && r.status !== 'cancelled')
   const userReservationsAll = reservations.filter(r => user && r.guest_id === user.id && r.status !== 'cancelled')
+
+  // Lógica para identificar si el usuario es un anfitrión
+  const isHost = useMemo(() => {
+    return userRole === 'host' || userRole === 'admin' || listings.some(l => l.host_id === user?.id);
+  }, [userRole, listings, user]);
 
   const handleSurpriseMe = () => {
     if (listings.length === 0) return
@@ -254,7 +297,32 @@ export default function App() {
         reservationsCount={userActiveReservations.length}
       />
 
+      {/* NAVBAR SECUNDARIO PARA ANFITRIONES */}
+      {isHost && (
+        <div className="bg-gray-900 text-white dark:bg-gray-800 py-2 px-6 flex justify-between items-center text-sm shadow-md z-20 relative">
+          <span className="font-bold flex items-center gap-2">Modo Anfitrión Activo</span>
+          <button 
+            onClick={() => setPage("dashboard")} 
+            className={`px-4 py-1.5 rounded-full font-bold transition-colors ${page === 'dashboard' ? 'bg-rose-500 text-white shadow-sm' : 'bg-white/10 hover:bg-white/20 text-white'}`}
+          >
+            Panel de Control
+          </button>
+        </div>
+      )}
+
       <AuthModal isOpen={authOpen} onClose={() => setAuthOpen(false)} onSuccess={u => setUser(u)} />
+
+      {/* DASHBOARD DEL ANFITRIÓN */}
+      {page === "dashboard" && isHost && (
+        <HostDashboard 
+          listings={listings.filter(l => l.host_id === user?.id)} 
+          reservations={reservations.filter(r => {
+            const listingInfo = listings.find(l => l.id === r.listing_id);
+            return listingInfo && listingInfo.host_id === user?.id;
+          })} 
+          onBlockDates={() => fetchRes()}
+        />
+      )}
 
       {page === "admin" && userRole === "admin" && (
         <AdminDashboard listings={listings} onDelete={handleDeleteListing} />
@@ -330,6 +398,8 @@ export default function App() {
               {userReservationsAll.map(r => {
                 const listingInfo = listings.find(l => l.id === r.listing_id) || {}
                 const isCancelled = r.status === 'cancelled'
+                
+                const isCancelable = canCancelReservation(r.check_in)
 
                 return (
                   <div key={r.id} className="border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 rounded-3xl p-6 shadow-md flex flex-col gap-6 relative">
@@ -342,7 +412,7 @@ export default function App() {
                         <p className="text-sm text-rose-500 font-bold mt-1">Del {r.check_in} al {r.check_out}</p>
                         
                         <p className="text-xs text-gray-600 dark:text-gray-300 font-medium flex items-center gap-1 mt-1">
-                          📍 {listingInfo?.address ? `Dirección: ${listingInfo.address}` : 'Dirección no especificada'}
+                          Dirección: {listingInfo?.address ? listingInfo.address : 'Dirección no especificada'}
                         </p>
 
                         <p className="text-sm text-gray-500 mt-1">Total pagado: ${r.total_price ? Number(r.total_price).toLocaleString() : '0'} MXN</p>
@@ -352,22 +422,20 @@ export default function App() {
                             ? "bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-400 border border-rose-200" 
                             : "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400 border border-emerald-200"
                         }`}>
-                          {isCancelled ? '❌ Cancelada' : '✅ Confirmada'}
+                          {isCancelled ? 'Cancelada' : 'Confirmada'}
                         </span>
                       </div>
                     </div>
 
                     {!isCancelled && (
                       <div className="flex flex-wrap gap-3 pt-4 border-t border-gray-100 dark:border-gray-800">
-                        
-                        {/* --- LÓGICA DEL BOTÓN DE LLAMADA MEJORADA --- */}
                         {listingInfo?.phone && listingInfo.phone.length > 5 ? (
                           <a 
                             href={`tel:${listingInfo.phone}`}
                             className="flex-1 bg-gray-900 hover:bg-gray-800 dark:bg-white dark:hover:bg-gray-200 dark:text-gray-900 text-white py-2.5 rounded-xl font-bold text-center text-sm transition flex flex-col items-center justify-center leading-tight"
                             title="Llamar al anfitrión (solo funciona en celulares)"
                           >
-                            <span> Llamar</span>
+                            <span>Llamar</span>
                             <span className="text-[11px] opacity-80 font-normal">+52 {listingInfo.phone}</span>
                           </a>
                         ) : (
@@ -375,7 +443,7 @@ export default function App() {
                             disabled
                             className="flex-1 bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 py-2.5 rounded-xl font-bold text-center text-sm transition flex flex-col items-center justify-center leading-tight cursor-not-allowed border border-gray-200 dark:border-gray-700"
                           >
-                            <span> Sin número</span>
+                            <span>Sin número</span>
                             <span className="text-[11px] font-normal">No disponible</span>
                           </button>
                         )}
@@ -384,7 +452,7 @@ export default function App() {
                           onClick={() => setChatReservation({ reservation: r, listingInfo })}
                           className="flex-1 border-2 border-gray-900 text-gray-900 hover:bg-gray-100 dark:border-white dark:text-white dark:hover:bg-gray-800 py-2.5 rounded-xl font-bold text-sm transition flex items-center justify-center"
                         >
-                           Mensaje directo
+                          Mensaje directo
                         </button>
                       </div>
                     )}
@@ -396,12 +464,23 @@ export default function App() {
                     )}
 
                     {!isCancelled && (
-                      <button 
-                        onClick={() => handleCancelReservation(r.id)}
-                        className="mt-2 text-sm font-semibold text-rose-500 hover:text-rose-700 hover:underline transition self-center"
-                      >
-                        Cancelar reservación
-                      </button>
+                      <div className="mt-4 flex flex-col items-center w-full">
+                        {isCancelable ? (
+                          <button 
+                            onClick={() => setReservationToCancel(r.id)}
+                            className="text-sm font-semibold text-rose-500 hover:text-rose-700 hover:underline transition"
+                          >
+                            Cancelar reservación
+                          </button>
+                        ) : (
+                          <div className="text-center p-3 w-full bg-rose-50 dark:bg-rose-950/40 rounded-xl border border-rose-200 dark:border-rose-900">
+                            <span className="text-xs font-bold text-rose-600 dark:text-rose-400 flex items-center justify-center gap-1">
+                              Ya no es posible cancelar 
+                            </span>
+                            <span className="text-[10px] text-rose-500 mt-1 block">Faltan menos de 24 hrs para el check-in</span>
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
                 )
@@ -499,7 +578,7 @@ export default function App() {
           <p className="text-sm text-gray-500 mb-8">Lugares que has guardado para tu próximo viaje.</p>
           {savedListings.length === 0 ? (
             <div className="text-center py-20 text-gray-400">
-              <p className="text-5xl mb-3">🤍</p>
+              <p className="text-5xl mb-3"></p>
               <p className="text-base font-semibold">Aún no has guardado ninguna casa en tus favoritos.</p>
               <button onClick={() => setPage("explore")} className="mt-4 bg-rose-500 text-white px-6 py-2 rounded-full font-bold text-xs">
                 Explorar listados
@@ -534,6 +613,49 @@ export default function App() {
       />
 
       <Footer />
+
+      {/* POP-UP (MODAL) DE CONFIRMACIÓN DE CANCELACIÓN */}
+      {reservationToCancel && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm transition-opacity">
+          <div className="bg-white dark:bg-gray-900 rounded-3xl p-6 md:p-8 max-w-sm w-full shadow-2xl border border-gray-200 dark:border-gray-800">
+            
+            <div className="w-16 h-16 bg-rose-100 dark:bg-rose-950/50 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">
+              
+            </div>
+            
+            <h3 className="text-xl font-black text-gray-900 dark:text-white text-center mb-2">
+              Cancelar reservación
+            </h3>
+            
+            <p className="text-sm text-gray-600 dark:text-gray-400 text-center mb-8">
+              ¿Estás seguro de que quieres cancelar esto? Esta acción no se puede deshacer y perderás tu lugar.
+            </p>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => setReservationToCancel(null)}
+                className="flex-1 py-3.5 rounded-xl font-bold text-gray-700 dark:text-gray-300 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 transition"
+              >
+                No, volver
+              </button>
+              <button
+                onClick={confirmCancelReservation}
+                className="flex-1 py-3.5 rounded-xl font-bold text-white bg-rose-500 hover:bg-rose-600 transition shadow-lg shadow-rose-500/30"
+              >
+                Sí, cancelar
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE TÉRMINOS Y CONDICIONES */}
+      <TermsModal 
+        isOpen={showTerms} 
+        onAccept={handleAcceptTerms} 
+        onDecline={handleDeclineTerms} 
+      />
 
     </div>
   )
