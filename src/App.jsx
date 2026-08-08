@@ -367,7 +367,7 @@ export default function App() {
                             className="flex-1 bg-gray-900 hover:bg-gray-800 dark:bg-white dark:hover:bg-gray-200 dark:text-gray-900 text-white py-2.5 rounded-xl font-bold text-center text-sm transition flex flex-col items-center justify-center leading-tight"
                             title="Llamar al anfitrión (solo funciona en celulares)"
                           >
-                            <span>📞 Llamar</span>
+                            <span> Llamar</span>
                             <span className="text-[11px] opacity-80 font-normal">+52 {listingInfo.phone}</span>
                           </a>
                         ) : (
@@ -375,7 +375,7 @@ export default function App() {
                             disabled
                             className="flex-1 bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 py-2.5 rounded-xl font-bold text-center text-sm transition flex flex-col items-center justify-center leading-tight cursor-not-allowed border border-gray-200 dark:border-gray-700"
                           >
-                            <span>📞 Sin número</span>
+                            <span> Sin número</span>
                             <span className="text-[11px] font-normal">No disponible</span>
                           </button>
                         )}
@@ -384,7 +384,7 @@ export default function App() {
                           onClick={() => setChatReservation({ reservation: r, listingInfo })}
                           className="flex-1 border-2 border-gray-900 text-gray-900 hover:bg-gray-100 dark:border-white dark:text-white dark:hover:bg-gray-800 py-2.5 rounded-xl font-bold text-sm transition flex items-center justify-center"
                         >
-                          💬 Mensaje directo
+                           Mensaje directo
                         </button>
                       </div>
                     )}
@@ -417,7 +417,7 @@ export default function App() {
             <h2 className="text-3xl font-black mb-4">Explorar alojamientos</h2>
             <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-4 rounded-3xl shadow-sm flex flex-col lg:flex-row gap-4 items-center">
               <div className="relative w-full lg:w-1/3">
-                <span className="absolute left-4 top-3 text-lg">🔍</span>
+                <span className="absolute left-4 top-3 text-lg"></span>
                 <input
                   type="text"
                   placeholder="Ciudad, lugar o nombre..."
@@ -457,7 +457,7 @@ export default function App() {
                 onClick={handleSurpriseMe}
                 className="w-full lg:w-auto shrink-0 bg-rose-500 hover:bg-rose-600 text-white font-black text-sm px-6 py-3 rounded-2xl shadow-md transition-all flex items-center justify-center gap-2"
               >
-                🎲 ¡Sorpréndeme!
+                 ¡Sorpréndeme!
               </button>
             </div>
           </div>
@@ -478,7 +478,7 @@ export default function App() {
               ))
             ) : (
               <div className="col-span-full py-24 text-center bg-gray-50 dark:bg-gray-900/50 rounded-3xl border border-gray-100 dark:border-gray-800">
-                <span className="text-6xl mb-4 block">🏜️</span>
+                <span className="text-6xl mb-4 block"></span>
                 <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-2">No encontramos resultados</h2>
                 <p className="text-gray-500 dark:text-gray-400 mb-6">Prueba aumentando el precio máximo o quitando los filtros.</p>
                 <button 
