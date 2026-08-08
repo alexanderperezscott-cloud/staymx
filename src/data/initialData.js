@@ -19,7 +19,8 @@ export const initialListings = [
     description: "Increíble loft totalmente equipado frente al mar con terraza y alberca." 
   },
   { 
-    id: "d64d7323-dfe7-4212-80a4-9c1ec3513", 
+    // CORRECCIÓN: Se completó el UUID para que tenga 36 caracteres y sea válido en Supabase
+    id: "d64d7323-dfe7-4212-80a4-9c1ec3513000", 
     title: "Cabaña en la selva con cenote privado", 
     location: "Valladolid, Yucatán", 
     price: 2400, 
