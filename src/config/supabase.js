@@ -106,7 +106,8 @@ export async function createReservation(reservation) {
     .from('reservations')
     .insert([
       {
-        listing_id: sanitizeNumber(targetListingId, 0),
+        // CORRECCIÓN: Se quitó sanitizeNumber porque el ID es un UUID (letras y números), no un número simple.
+        listing_id: targetListingId, 
         guest_id: session.user.id,
         check_in: sanitizeText(reservation.checkIn, 20),
         check_out: sanitizeText(reservation.checkOut, 20),
@@ -126,6 +127,21 @@ export async function createReservationWithPayment(reservation) {
   if (!session?.user) {
     return { data: null, error: { message: "Debes iniciar sesión para realizar una reservación." } }
   }
+
+  // --- NUEVO: CANDADO DE 3 ALOJAMIENTOS MAXIMOS EN LA BASE DE DATOS ---
+  const { count: activeReservationsCount, error: countError } = await supabase
+    .from('reservations')
+    .select('*', { count: 'exact', head: true })
+    .eq('guest_id', session.user.id)
+    .neq('status', 'cancelled')
+
+  if (activeReservationsCount >= 3) {
+    return { 
+      data: null, 
+      error: { message: "Ya tienes el máximo número de alojamientos activos (3). Disfruta tus viajes actuales antes de reservar de nuevo." } 
+    }
+  }
+  // --------------------------------------------------------------------
 
   const targetListingId = reservation.listingId || reservation.listing_id
 
@@ -153,7 +169,8 @@ export async function createReservationWithPayment(reservation) {
     .from('reservations')
     .insert([
       {
-        listing_id: sanitizeNumber(targetListingId, 0),
+        // CORRECCIÓN: Se quitó sanitizeNumber para que acepte el UUID correctamente
+        listing_id: targetListingId, 
         guest_id: session.user.id,
         check_in: sanitizeText(reservation.checkIn, 20),
         check_out: sanitizeText(reservation.checkOut, 20),
@@ -320,9 +337,10 @@ export async function sendMessage(reservationId, receiverId, content) {
   const { data, error } = await supabase
     .from('messages')
     .insert([{
-      reservation_id: sanitizeNumber(reservationId, 0),
+      // CORRECCIÓN: Quitamos sanitizeNumber para aceptar UUIDs correctamente
+      reservation_id: reservationId,
       sender_id: session.user.id,
-      receiver_id: sanitizeNumber(receiverId, 0),
+      receiver_id: receiverId,
       content: sanitizeText(content, 2000)
     }])
     .select()
@@ -395,7 +413,8 @@ export async function submitReview(listingId, rating, comment) {
   const { data, error } = await supabase
     .from('reviews')
     .insert([{ 
-      listing_id: sanitizeNumber(listingId, 0), 
+      // CORRECCIÓN: Quitamos sanitizeNumber para aceptar UUIDs correctamente
+      listing_id: listingId, 
       user_id: session.user.id, 
       rating: sanitizeNumber(rating, 0), 
       comment: sanitizeText(comment, 1000) 
