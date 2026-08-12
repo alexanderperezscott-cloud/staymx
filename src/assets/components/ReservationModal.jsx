@@ -45,9 +45,12 @@ function useReservationPricing(checkInDate, checkOutDate, pricePerNight, rateTyp
 }
 
 export default function ReservationModal({ listing, onClose, onReserve, reservations, user, openAuth, activeReservationsCount = 0 }) {
-  if (!listing) return null
-
   useEffect(() => {
+    if (!listing) {
+      document.body.style.overflow = ''
+      return
+    }
+
     const previousOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
 
@@ -55,6 +58,8 @@ export default function ReservationModal({ listing, onClose, onReserve, reservat
       document.body.style.overflow = previousOverflow
     }
   }, [listing])
+
+  if (!listing) return null
 
   // Checkout Step State
   const [step, setStep] = useState('details')
