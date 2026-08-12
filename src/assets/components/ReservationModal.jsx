@@ -45,6 +45,13 @@ function useReservationPricing(checkInDate, checkOutDate, pricePerNight, rateTyp
 }
 
 export default function ReservationModal({ listing, onClose, onReserve, reservations, user, openAuth, activeReservationsCount = 0 }) {
+  // Checkout Step State
+  const [step, setStep] = useState('details')
+
+  // Fechas ahora son Objetos Date para react-datepicker
+  const [checkIn, setCheckIn] = useState(getTomorrow())
+  const [checkOut, setCheckOut] = useState(getNextWeek())
+
   useEffect(() => {
     if (!listing) {
       document.body.style.overflow = ''
@@ -59,18 +66,9 @@ export default function ReservationModal({ listing, onClose, onReserve, reservat
     }
   }, [listing])
 
-  if (!listing) return null
-
-  // Checkout Step State
-  const [step, setStep] = useState('details')
-
-  // Fechas ahora son Objetos Date para react-datepicker
-  const [checkIn, setCheckIn] = useState(getTomorrow())
-  const [checkOut, setCheckOut] = useState(getNextWeek())
-  
   // STAYMX CHANGE: Eliminamos el useState(1) para que no se quede trabado en 1.
   // Ahora lee directamente la cantidad máxima que pusiste en la base de datos (Modo Anfitrión).
-  const guests = listing.guests || 1; 
+  const guests = listing?.guests || 1;
 
   const [rateType, setRateType] = useState('non_refundable') 
   const [paymentOption, setPaymentOption] = useState('full')
@@ -96,10 +94,11 @@ export default function ReservationModal({ listing, onClose, onReserve, reservat
 
   // ----- LÓGICA DE FECHAS BLOQUEADAS (Calendario Oscuro) -----
   const activeBookings = useMemo(() => {
+    const listingId = listing?.id ?? null
     return (reservations || []).filter(
-      r => (r.listing_id === listing.id || r.listingId === listing.id) && r.status !== 'cancelled'
+      r => (r.listing_id === listingId || r.listingId === listingId) && r.status !== 'cancelled'
     )
-  }, [reservations, listing.id]);
+  }, [reservations, listing?.id]);
 
   // Convertimos las reservas activas en intervalos bloqueados para react-datepicker
   const excludedIntervals = useMemo(() => {
@@ -145,12 +144,14 @@ export default function ReservationModal({ listing, onClose, onReserve, reservat
   }, [user, reservations]);
 
   // Precios
-  const pricePerNight = Number(listing.price || listing.price_per_night || 0);
+  const pricePerNight = Number(listing?.price || listing?.price_per_night || 0);
   const { nights, basePrice, discount, taxes, total } = useReservationPricing(checkIn, checkOut, pricePerNight, rateType);
 
-  const images = Array.isArray(listing.images) && listing.images.length > 0
+  const images = Array.isArray(listing?.images) && listing.images.length > 0
     ? listing.images
-    : [listing.img || listing.image_url || listing.image].filter(Boolean)
+    : [listing?.img || listing?.image_url || listing?.image].filter(Boolean)
+
+  if (!listing) return null
 
   const handleConfirmReservation = async (e) => {
     if (e) e.preventDefault(); 
