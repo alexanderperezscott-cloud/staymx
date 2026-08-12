@@ -80,11 +80,12 @@ export default function LoginModal({ isOpen, onClose }) {
 
   return (
     <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 max-w-md w-full space-y-6 shadow-2xl relative text-slate-100">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-8 max-w-md w-full max-h-[90vh] overflow-y-auto space-y-5 sm:space-y-6 shadow-2xl relative text-slate-100">
         
         <button 
           onClick={onClose} 
-          className="absolute top-4 right-4 text-slate-400 hover:text-white text-lg transition duration-150"
+          className="absolute top-4 right-4 text-slate-400 hover:text-white text-lg transition duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 rounded-full w-8 h-8 flex items-center justify-center"
+          aria-label="Cerrar modal"
         >
           ✕
         </button>
@@ -103,7 +104,7 @@ export default function LoginModal({ isOpen, onClose }) {
           onClick={handleGoogleAuth}
           type="button"
           disabled={googleLoading}
-          className="w-full flex items-center justify-center gap-3 bg-slate-800 hover:bg-slate-700 active:scale-[0.99] text-slate-200 py-2.5 px-4 rounded-xl border border-slate-700 transition duration-200 text-sm font-medium disabled:opacity-50"
+          className="w-full flex items-center justify-center gap-3 bg-slate-800 hover:bg-slate-700 active:scale-[0.99] text-slate-200 py-3 px-4 rounded-xl border border-slate-700 transition duration-200 text-sm font-medium disabled:opacity-50 min-h-[48px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
         >
           {googleLoading ? (
             <span className="text-xs text-slate-400">Conectando con Google...</span>
@@ -128,29 +129,31 @@ export default function LoginModal({ isOpen, onClose }) {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-mono text-slate-400 mb-1">
+            <label htmlFor="login-email" className="block text-xs font-mono text-slate-400 mb-1">
               Correo Electrónico
             </label>
             <input
+              id="login-email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-slate-200 text-sm focus:outline-none focus:border-rose-500 transition duration-150"
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-3 text-slate-200 text-sm focus:outline-none focus:border-rose-500 transition duration-150 min-h-[48px]"
               placeholder="tu@correo.com"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-mono text-slate-400 mb-1">
+            <label htmlFor="login-password" className="block text-xs font-mono text-slate-400 mb-1">
               Contraseña
             </label>
             <input
+              id="login-password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-slate-200 text-sm focus:outline-none focus:border-rose-500 transition duration-150"
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-3 text-slate-200 text-sm focus:outline-none focus:border-rose-500 transition duration-150 min-h-[48px]"
               placeholder="••••••••"
             />
           </div>
@@ -166,7 +169,7 @@ export default function LoginModal({ isOpen, onClose }) {
                 className="mt-0.5 accent-rose-500 w-4 h-4 rounded cursor-pointer shrink-0 border-slate-700 bg-slate-900"
               />
               <label htmlFor="terms" className="text-[11px] text-slate-400 leading-relaxed cursor-pointer select-none">
-                Confirmo que soy mayor de 18 años y acepto los <a href="#" className="text-rose-400 font-medium hover:underline">Términos de Servicio</a> y la <a href="#" className="text-rose-400 font-medium hover:underline">Política de Privacidad</a> de StayMX para el tratamiento de datos.
+                Confirmo que soy mayor de 18 años y acepto los <button type="button" className="text-rose-400 font-medium hover:underline underline-offset-2">Términos de Servicio</button> y la <button type="button" className="text-rose-400 font-medium hover:underline underline-offset-2">Política de Privacidad</button> de StayMX para el tratamiento de datos.
               </label>
             </div>
           )}
@@ -174,7 +177,7 @@ export default function LoginModal({ isOpen, onClose }) {
           <button
             type="submit"
             disabled={loading || (isSignUp && !acceptedTerms)}
-            className="w-full bg-rose-500 hover:bg-rose-600 text-white font-semibold py-2.5 rounded-xl transition duration-200 text-sm disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.99]"
+            className="w-full bg-rose-500 hover:bg-rose-600 text-white font-semibold py-3 rounded-xl transition duration-200 text-sm disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.99] min-h-[48px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
           >
             {loading ? 'Procesando...' : isSignUp ? 'Registrarse' : 'Entrar'}
           </button>

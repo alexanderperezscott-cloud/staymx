@@ -9,8 +9,24 @@ const ListingCard = ({ listing, onClick, savedIds = [], onToggleSave }) => {
   const displayPrice = listing.price || listing.price_per_night || 0;
   const displayLocation = listing.location || listing.city || 'México';
 
+  const handleOpen = () => {
+    if (onClick) onClick(listing)
+  }
+
   return (
-    <div onClick={() => onClick && onClick(listing)} className="group cursor-pointer">
+    <div
+      onClick={handleOpen}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          handleOpen()
+        }
+      }}
+      role="button"
+      tabIndex={0}
+      aria-label={`Abrir detalles de ${displayTitle}`}
+      className="group cursor-pointer rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-950"
+    >
       <div className="relative aspect-[20/19] w-full overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-800 bg-gray-100 dark:bg-gray-900 transition-colors duration-300">
         <img 
           src={displayImg} 
@@ -25,11 +41,13 @@ const ListingCard = ({ listing, onClick, savedIds = [], onToggleSave }) => {
         )}
         
         <button 
+          type="button"
+          aria-label={isSaved ? `Quitar ${displayTitle} de favoritos` : `Guardar ${displayTitle} en favoritos`}
           onClick={(e) => {
             e.stopPropagation();
             if (onToggleSave) onToggleSave(listing.id);
           }}
-          className="absolute top-3 right-3 text-white/90 hover:text-rose-500 hover:scale-110 active:scale-95 transition"
+          className="absolute top-3 right-3 text-white/90 hover:text-rose-500 hover:scale-110 active:scale-95 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white rounded-full"
         >
           {isSaved ? (
             <span className="text-2xl drop-shadow-md">❤️</span>

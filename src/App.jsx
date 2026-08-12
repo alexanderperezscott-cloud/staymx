@@ -344,9 +344,9 @@ export default function App() {
           <div className="relative bg-gray-900 text-white py-28 px-6 text-center overflow-hidden flex items-center justify-center">
             <div className="relative max-w-xl mx-auto z-10">
               <h1 className="text-4xl md:text-5xl font-black mb-4">Descubre espacios únicos en todo México</h1>
-              <div className="flex gap-3 justify-center flex-wrap mt-6">
-                <button onClick={() => setPage("explore")} className="bg-rose-500 hover:bg-rose-600 text-white px-8 py-3 rounded-full font-bold">Comenzar a explorar</button>
-                <button onClick={() => user ? setPage("reservations") : setAuthOpen(true)} className="bg-white/10 border border-white/20 text-white px-8 py-3 rounded-full font-bold">
+              <div className="flex flex-col sm:flex-row gap-3 justify-center items-stretch sm:items-center mt-6">
+                <button onClick={() => setPage("explore")} className="w-full sm:w-auto bg-rose-500 hover:bg-rose-600 text-white px-6 sm:px-8 py-3.5 rounded-full font-bold min-h-[48px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white">Comenzar a explorar</button>
+                <button onClick={() => user ? setPage("reservations") : setAuthOpen(true)} className="w-full sm:w-auto bg-white/10 border border-white/20 text-white px-6 sm:px-8 py-3.5 rounded-full font-bold min-h-[48px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white">
                   Mis Alojamientos
                 </button>
               </div>
@@ -382,14 +382,14 @@ export default function App() {
           {!user ? (
             <div className="text-center py-20 text-gray-400">
               <p className="text-base font-semibold">Inicia sesión para ver tus reservaciones.</p>
-              <button onClick={() => setAuthOpen(true)} className="mt-4 bg-rose-500 text-white px-6 py-2 rounded-full font-bold text-xs">
+              <button onClick={() => setAuthOpen(true)} className="mt-4 bg-rose-500 text-white px-6 py-3 rounded-full font-bold text-sm min-h-[48px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500">
                 Iniciar sesión
               </button>
             </div>
           ) : userReservationsAll.length === 0 ? (
             <div className="text-center py-20 text-gray-400">
               <p className="text-base font-semibold">Aún no tienes reservaciones activas registradas.</p>
-              <button onClick={() => setPage("explore")} className="mt-4 bg-rose-500 text-white px-6 py-2 rounded-full font-bold text-xs">
+              <button onClick={() => setPage("explore")} className="mt-4 bg-rose-500 text-white px-6 py-3 rounded-full font-bold text-sm min-h-[48px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500">
                 Explorar alojamientos
               </button>
             </div>
@@ -497,18 +497,24 @@ export default function App() {
             <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-4 rounded-3xl shadow-sm flex flex-col lg:flex-row gap-4 items-center">
               <div className="relative w-full lg:w-1/3">
                 <span className="absolute left-4 top-3 text-lg"></span>
+                <label htmlFor="explore-search" className="sr-only">Buscar alojamientos</label>
                 <input
+                  id="explore-search"
                   type="text"
                   placeholder="Ciudad, lugar o nombre..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
+                  aria-label="Buscar por ciudad, lugar o nombre"
                   className="w-full pl-12 pr-4 py-3 border-none bg-gray-100 dark:bg-gray-950 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 text-gray-900 dark:text-white"
                 />
               </div>
               <div className="w-full lg:w-1/4">
+                <label htmlFor="property-type" className="sr-only">Tipo de propiedad</label>
                 <select 
+                  id="property-type"
                   value={propertyType} 
                   onChange={(e) => setPropertyType(e.target.value)}
+                  aria-label="Seleccionar tipo de propiedad"
                   className="w-full px-4 py-3 border-none bg-gray-100 dark:bg-gray-950 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 text-gray-900 dark:text-white cursor-pointer"
                 >
                   <option value="all">Cualquier tipo</option>
@@ -519,16 +525,18 @@ export default function App() {
               </div>
               <div className="w-full lg:w-1/4 flex flex-col justify-center px-2">
                 <div className="flex justify-between items-center mb-1">
-                  <label className="text-xs font-bold text-gray-500">Precio máximo</label>
+                  <label htmlFor="max-price" className="text-xs font-bold text-gray-500">Precio máximo</label>
                   <span className="text-xs font-black text-rose-500">${maxPrice} MXN</span>
                 </div>
                 <input 
+                  id="max-price"
                   type="range" 
                   min="500" 
                   max="20000" 
                   step="500" 
                   value={maxPrice} 
                   onChange={(e) => setMaxPrice(Number(e.target.value))} 
+                  aria-label="Precio máximo"
                   className="w-full accent-rose-500 cursor-pointer"
                 />
               </div>
@@ -562,7 +570,7 @@ export default function App() {
                 <p className="text-gray-500 dark:text-gray-400 mb-6">Prueba aumentando el precio máximo o quitando los filtros.</p>
                 <button 
                   onClick={() => { setSearchTerm(''); setMaxPrice(20000); setPropertyType('all'); }} 
-                  className="bg-rose-500 text-white px-6 py-2.5 rounded-full font-bold text-sm hover:bg-rose-600 transition"
+                  className="bg-rose-500 text-white px-6 py-3 rounded-full font-bold text-sm hover:bg-rose-600 transition min-h-[48px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
                 >
                   Limpiar filtros
                 </button>
@@ -580,7 +588,7 @@ export default function App() {
             <div className="text-center py-20 text-gray-400">
               <p className="text-5xl mb-3"></p>
               <p className="text-base font-semibold">Aún no has guardado ninguna casa en tus favoritos.</p>
-              <button onClick={() => setPage("explore")} className="mt-4 bg-rose-500 text-white px-6 py-2 rounded-full font-bold text-xs">
+              <button onClick={() => setPage("explore")} className="mt-4 bg-rose-500 text-white px-6 py-3 rounded-full font-bold text-sm min-h-[48px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500">
                 Explorar listados
               </button>
             </div>
