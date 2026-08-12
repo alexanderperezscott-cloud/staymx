@@ -21,6 +21,9 @@ export default function LoginModal({ isOpen, onClose }) {
   useEffect(() => {
     if (!isOpen) return
 
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session) {
         closeGooglePopup()
@@ -30,6 +33,7 @@ export default function LoginModal({ isOpen, onClose }) {
     })
 
     return () => {
+      document.body.style.overflow = previousOverflow
       subscription.unsubscribe()
     }
   }, [isOpen, onClose])
